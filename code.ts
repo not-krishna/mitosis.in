@@ -21,49 +21,39 @@ const getTopLevelFrames = () => {
 // Calls to "parent.postMessage" from within the HTML page will trigger this
 // callback. The callback will be passed the "pluginMessage" property of the
 // posted message.
-figma.ui.onmessage =  (msg: any) => {
+figma.ui.onmessage =  (msg: {type: string,frameId: string}) => {
   // One way of distinguishing between different types of messages sent from
   // your HTML page is to use an object with a "type" property like this.
 
 
   if (msg.type === 'export-data') {
-     figma.notify("Export triggered"); // 🔥 visible proof
-        figma.getNodeByIdAsync(msg.frameId).then(node=> {
-                   if (!node || node.type !== 'FRAME') {
-                figma.ui.postMessage({
-                    type: "error",
-                    message: "Invalid frame"
-                });
-                return;
-            }
-             const hashNodes = node.findAll(n => n.name.startsWith('#'));
-            console.log("FOUND NODES:", hashNodes.length);
-            if (hashNodes.length === 0) {
-                figma.ui.postMessage({
-                    type: "error",
-                    message: "No # elements found"
-                });
-                return;
-            }
-            const nodeNames = hashNodes.map((n:any) => n.name);
-            // We just need to send the names to UI to generate the CSV headers
-            figma.ui.postMessage({
-                type: 'export-data',
-                data: {
-                    frameName: node.name,
-                    columns: nodeNames
-                }
-            });
-            });
-          
-              
-            
-            // Find all nested nodes starting with '#'
-            // @ts-ignore
-           
-  }
+  
+    extractNode(msg.frameId).then(async (node) => {
+    if (!node || node.type !== 'FRAME') {
+      console.error("Frame not found");
+      return;
+    }
+    const hashNodes = node.findAll((n: any) => n.name.startsWith('#'));
+    const nodeNames = hashNodes.map((n: any) => n.name);
+
+    figma.notify("Frame name: " + node.name);
+
+    figma.ui.postMessage({
+      type: 'export-data',
+      data: {
+        frameName: node.name,
+        columns: nodeNames
+      }
+    });
+  });
+}
 
   // Make sure to close the plugin when you're done. Otherwise the plugin will
   // keep running, which shows the cancel button at the bottom of the screen.
   figma.closePlugin();
 };
+
+async function extractNode(nodeId: string) {
+  const node = await figma.getNodeByIdAsync(nodeId); // Correct usage
+  return node;
+}

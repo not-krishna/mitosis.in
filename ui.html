@@ -4,15 +4,15 @@
         <div class="input-group">
             <label for="frameSelect">Select Frame:</label>
             <select id="frameSelect">
-                <option value="">Loading frames...</option>
-            </select>
-        </div>
+                  <option value="">Loading frames...</option>
+              </select>
+          </div>
 
-   
+    
 
-        <button id="exportBtn" disabled>Export CSV</button>
-    </div>
-</select></p>
+          <button id="exportBtn" disabled>Export CSV</button>
+      </div>
+  </select></p>
 
 <script>
 const frameSelect = document.getElementById('frameSelect');
@@ -53,10 +53,14 @@ const exportBtn = document.getElementById('exportBtn');
 exportBtn.onclick = () => {
   console.log("Button clicked");
   console.log(frameSelect.value);
+  let data ;
 
   const frameId = frameSelect.value;
   if (frameId) {
-    parent.postMessage({ pluginMessage: { type: 'export-data', frameId } }, '*');
+    data = parent.postMessage({ pluginMessage: { type: 'export-data', frameId } }, '*');
+
+   
+     console.log(data);
   }
   
 };
