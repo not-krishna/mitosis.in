@@ -7,7 +7,8 @@
     "build": "tsc -p tsconfig.json",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "watch": "npm run build -- --watch"
+    "watch": "npm run build -- --watch",
+    "dev": "npm run build -- --watch"
   },
   "author": "",
   "license": "",

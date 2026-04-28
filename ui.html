@@ -1,17 +1,72 @@
-<h2>Rectangle Creator</h2>
-<p>Count: <input id="count" type="number" value="5"></p>
-<button id="create">Create</button>
-<button id="cancel">Cancel</button>
+  <div class="section">
+        <h2>Export Frame to CSV</h2>
+        
+        <div class="input-group">
+            <label for="frameSelect">Select Frame:</label>
+            <select id="frameSelect">
+                <option value="">Loading frames...</option>
+            </select>
+        </div>
+
+   
+
+        <button id="exportBtn" disabled>Export CSV</button>
+    </div>
+</select></p>
+
 <script>
+const frameSelect = document.getElementById('frameSelect');
+const exportBtn = document.getElementById('exportBtn');
 
-document.getElementById('create').onclick = () => {
-  const textbox = document.getElementById('count');
-  const count = parseInt(textbox.value, 10);
-  parent.postMessage({ pluginMessage: { type: 'create-shapes', count } }, '*')
-}
 
-document.getElementById('cancel').onclick = () => {
-  parent.postMessage({ pluginMessage: { type: 'cancel' } }, '*')
-}
+ window.addEventListener("message", (event) => {
+            const msg = event.data.pluginMessage;
+            if (!msg) return;
+            
+            if (msg.type === 'frames-loaded') {
+                availableFrames = msg.frames;
+                frameSelect.innerHTML = '<option value="">-- Select a frame --</option>';
+                availableFrames.forEach(frame => {
+                    const option = document.createElement('option');
+                    option.value = frame.id;
+                    option.textContent = frame.name;
+                    frameSelect.appendChild(option);
+                });
+                
+                frameSelect.addEventListener('change', () => {
+                    exportBtn.disabled = !frameSelect.value;
+                });
+            }
+
+            if (msg.type === 'export-data') {
+              console.log(msg.data);
+              if(msg.data.error){
+               showStatus(msg.data.error, 'error');
+              }
+               showStatus('Exported frames to CSV', 'success');
+              //  exportBtn.disabled = false;
+              //  exportBtn.textContent = 'Exported'
+
+            }
+          })
+
+exportBtn.onclick = () => {
+  console.log("Button clicked");
+  console.log(frameSelect.value);
+
+  const frameId = frameSelect.value;
+  if (frameId) {
+    parent.postMessage({ pluginMessage: { type: 'export-data', frameId } }, '*');
+  }
+  
+};
+// exportBtn.onclick = () => {
+//   const frameId = frameSelect.value;
+//   if (frameId) {
+//     parent.postMessage({ pluginMessage: { type: 'export-data', frameId } }, '*');
+//   }
+// };  
+
+
 
 </script>
