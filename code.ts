@@ -21,7 +21,90 @@ const getTopLevelFrames = () => {
 // Calls to "parent.postMessage" from within the HTML page will trigger this
 // callback. The callback will be passed the "pluginMessage" property of the
 // posted message.
-figma.ui.onmessage =  (msg: {type: string, frameId?: string, file?: string, csvContent?: string}) => {
+// Function to load fonts for a text node
+const loadFonts = async (textNode: TextNode) => {
+    if (textNode.fontName !== figma.mixed) {
+        await figma.loadFontAsync(textNode.fontName as FontName);
+    } else {
+        const fonts = textNode.getRangeAllFontNames(0, textNode.characters.length);
+        for (const font of fonts) {
+            await figma.loadFontAsync(font);
+        }
+    }
+};
+
+const generateFrames = async (rows: string[][], imageHashMap: Record<string, string>) => {
+    const headers = rows[0];
+    let lastCreatedX = 0;
+    let lastCreatedY = 0;
+    
+    for (let r = 1; r < rows.length; r++) {
+        const row = rows[r];
+        if (row.length === 0 || !row[0]) continue;
+        
+        const frameName = row[0]; // ID column is assumed to be the frame name
+        
+        // Find the original frame by name on the current page
+        const originalNode = figma.currentPage.children.find(n => n.name === frameName && n.type === 'FRAME') as FrameNode | undefined;
+        
+        if (!originalNode) {
+            console.error(`Frame "${frameName}" not found on the current page.`);
+            continue;
+        }
+        
+        const duplicate = originalNode.clone();
+        
+        // Position the duplicate so they don't overlap completely
+        if (r === 1) {
+            lastCreatedX = originalNode.x + originalNode.width + 100;
+            lastCreatedY = originalNode.y;
+        } else {
+            lastCreatedY += originalNode.height + 50;
+        }
+        duplicate.x = lastCreatedX;
+        duplicate.y = lastCreatedY;
+        duplicate.name = `${originalNode.name} - Generated`;
+        
+        for (let c = 1; c < headers.length; c++) {
+            const header = headers[c] ? headers[c].trim() : "";
+            const value = (row[c] || "").trim();
+            
+            if (!header || !value) continue; // If value is empty, it keeps the original frame value
+            
+            // Find nodes in duplicate that match this header
+            const targetNodes = duplicate.findAll((n: any) => n.name === header);
+            
+            if (targetNodes.length === 0) {
+                console.log(`Warning: Could not find any layer named "${header}" in the frame.`);
+            }
+            
+            for (const targetNode of targetNodes) {
+                if (targetNode.type === 'TEXT') {
+                    // Load fonts first
+                    await loadFonts(targetNode as TextNode);
+                    (targetNode as TextNode).characters = value;
+                } else if ('fills' in targetNode) {
+                    // If the value is a URL and we fetched the image successfully
+                    if (value.startsWith('http://') || value.startsWith('https://')) {
+                        if (imageHashMap[value]) {
+                            const hash = imageHashMap[value];
+                            targetNode.fills = [{
+                                type: 'IMAGE',
+                                scaleMode: 'FILL',
+                                imageHash: hash
+                            }];
+                        } else {
+                            console.error(`Failed to apply image for ${header}. The URL may be invalid or blocked by CORS: ${value}`);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    figma.notify("Frames generated successfully!");
+};
+
+figma.ui.onmessage =  (msg: {type: string, frameId?: string, file?: string, csvContent?: string, urls?: string[], imageBytesMap?: any, rows?: any}) => {
   if (msg.type === 'export-data' && msg.frameId) {
   
     extractNode(msg.frameId).then(async (node) => {
@@ -61,8 +144,6 @@ figma.ui.onmessage =  (msg: {type: string, frameId?: string, file?: string, csvC
       }
 
       exportCSV(node.name, headers, values);
-      // Do not close plugin immediately, keep it open to show UI.
-      // If you want to close it, call figma.closePlugin() here.
     });
   } else if (msg.type === 'import-data' && msg.csvContent) {
     const csvContent = msg.csvContent;
@@ -121,73 +202,39 @@ figma.ui.onmessage =  (msg: {type: string, frameId?: string, file?: string, csvC
 
     const headers = rows[0];
     
-    // Function to load fonts for a text node
-    const loadFonts = async (textNode: TextNode) => {
-        if (textNode.fontName !== figma.mixed) {
-            await figma.loadFontAsync(textNode.fontName as FontName);
-        } else {
-            const fonts = textNode.getRangeAllFontNames(0, textNode.characters.length);
-            for (const font of fonts) {
-                await figma.loadFontAsync(font);
+    const urlsToFetch = new Set<string>();
+    for (let r = 1; r < rows.length; r++) {
+        for (let c = 1; c < headers.length; c++) {
+            const value = (rows[r][c] || "").trim();
+            if (value && (value.startsWith('http://') || value.startsWith('https://'))) {
+                urlsToFetch.add(value);
             }
         }
-    };
-
-    const generateFrames = async () => {
-        let lastCreatedX = 0;
-        let lastCreatedY = 0;
-        
-        for (let r = 1; r < rows.length; r++) {
-            const row = rows[r];
-            if (row.length === 0 || !row[0]) continue;
-            
-            const frameName = row[0]; // ID column is assumed to be the frame name
-            
-            // Find the original frame by name on the current page
-            const originalNode = figma.currentPage.children.find(n => n.name === frameName && n.type === 'FRAME') as FrameNode | undefined;
-            
-            if (!originalNode) {
-                console.error(`Frame "${frameName}" not found on the current page.`);
-                continue;
-            }
-            
-            const duplicate = originalNode.clone();
-            
-            // Position the duplicate so they don't overlap completely
-            if (r === 1) {
-                lastCreatedX = originalNode.x + originalNode.width + 100;
-                lastCreatedY = originalNode.y;
-            } else {
-                lastCreatedY += originalNode.height + 50;
-            }
-            duplicate.x = lastCreatedX;
-            duplicate.y = lastCreatedY;
-            duplicate.name = `${originalNode.name} - Generated`;
-            
-            for (let c = 1; c < headers.length; c++) {
-                const header = headers[c];
-                const value = row[c] || "";
-                
-                if (!header) continue;
-                
-                // Find nodes in duplicate that match this header
-                const targetNodes = duplicate.findAll((n: any) => n.name === header);
-                for (const targetNode of targetNodes) {
-                    if (targetNode.type === 'TEXT') {
-                        // Load fonts first
-                        await loadFonts(targetNode as TextNode);
-                        (targetNode as TextNode).characters = value;
-                    }
-                }
-            }
-        }
-        figma.notify("Frames generated successfully!");
-    };
+    }
     
-    generateFrames().catch(err => {
-        console.error(err);
-        figma.notify("Error generating frames. See console.");
-    });
+    if (urlsToFetch.size > 0) {
+        figma.ui.postMessage({ type: 'fetch-images', urls: Array.from(urlsToFetch), rows: rows });
+    } else {
+        generateFrames(rows, {}).catch(err => {
+            console.error(err);
+            figma.notify("Error generating frames. See console.");
+        });
+    }
+  } else if (msg.type === 'images-fetched' && msg.imageBytesMap && msg.rows) {
+      const imageBytesMap = msg.imageBytesMap;
+      const rows = msg.rows;
+      
+      const imageHashMap: Record<string, string> = {};
+      for (const url in imageBytesMap) {
+          const bytes = imageBytesMap[url];
+          const figmaImage = figma.createImage(new Uint8Array(bytes));
+          imageHashMap[url] = figmaImage.hash;
+      }
+      
+      generateFrames(rows, imageHashMap).catch(err => {
+          console.error(err);
+          figma.notify("Error generating frames. See console.");
+      });
   } else {
     // Make sure to close the plugin when you're done. Otherwise the plugin will
     // keep running, which shows the cancel button at the bottom of the screen.

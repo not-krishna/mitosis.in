@@ -84,8 +84,28 @@ const closeBtn = document.getElementById('closeBtn');
                   URL.revokeObjectURL(url);
               }
             }
-
             
+            if (msg.type === 'fetch-images') {
+                console.log("Fetching images...", msg.urls);
+                const fetchPromises = msg.urls.map(async (url) => {
+                    try {
+                        const response = await fetch(url);
+                        const arrayBuffer = await response.arrayBuffer();
+                        return { url, bytes: new Uint8Array(arrayBuffer) };
+                    } catch (e) {
+                        console.error("Failed to fetch image:", url, e);
+                        return null;
+                    }
+                });
+                
+                Promise.all(fetchPromises).then(results => {
+                    const imageBytesMap = {};
+                    for (const res of results) {
+                        if (res) imageBytesMap[res.url] = res.bytes;
+                    }
+                    parent.postMessage({ pluginMessage: { type: 'images-fetched', imageBytesMap, rows: msg.rows } }, '*');
+                });
+            }
           })
 
 exportBtn.onclick = () => {
