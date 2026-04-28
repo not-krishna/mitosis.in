@@ -21,36 +21,62 @@ const getTopLevelFrames = () => {
 // Calls to "parent.postMessage" from within the HTML page will trigger this
 // callback. The callback will be passed the "pluginMessage" property of the
 // posted message.
-figma.ui.onmessage =  (msg: {type: string,frameId: string}) => {
-  // One way of distinguishing between different types of messages sent from
-  // your HTML page is to use an object with a "type" property like this.
-
-
-  if (msg.type === 'export-data') {
+figma.ui.onmessage =  (msg: {type: string, frameId?: string, file?: string, csvContent?: string}) => {
+  if (msg.type === 'export-data' && msg.frameId) {
   
     extractNode(msg.frameId).then(async (node) => {
-    if (!node || node.type !== 'FRAME') {
-      console.error("Frame not found");
-      return;
-    }
-    const hashNodes = node.findAll((n: any) => n.name.startsWith('#'));
-    const nodeNames = hashNodes.map((n: any) => n.name);
-
-    figma.notify("Frame name: " + node.name);
-
-    figma.ui.postMessage({
-      type: 'export-data',
-      data: {
-        frameName: node.name,
-        columns: nodeNames
+      if (!node || node.type !== 'FRAME') {
+        console.error("Frame not found");
+        figma.closePlugin();
+        return;
       }
-    });
-  });
-}
+      const hashNodes = node.findAll((n: any) => n.name.startsWith('#'));
+      
+      const headers = ['ID', ...hashNodes.map((n: any) => n.name.replace(/^#/, ''))];
+      const values = [node.name, ...hashNodes.map((n: any) => {
+        if (n.type === 'TEXT') {
+          return n.characters;
+        }
+        return '';
+      })];
 
-  // Make sure to close the plugin when you're done. Otherwise the plugin will
-  // keep running, which shows the cancel button at the bottom of the screen.
-  figma.closePlugin();
+      const exportCSV = (nodeName: string, headers: string[], values: string[]) => {
+        const escapeCSV = (str: string) => {
+            if (typeof str !== 'string') str = String(str);
+            if (str.includes(',') || str.includes('\n') || str.includes('"')) {
+                return `"${str.replace(/"/g, '""')}"`;
+            }
+            return str;
+        };
+        
+        const csvContent = headers.map(escapeCSV).join(',') + '\n' + values.map(escapeCSV).join(',');
+        
+        figma.ui.postMessage({
+          type: 'export-data',
+          data: {
+            frameName: nodeName,
+            csvContent: csvContent
+          }
+        });
+      }
+
+      exportCSV(node.name, headers, values);
+      // Do not close plugin immediately, keep it open to show UI.
+      // If you want to close it, call figma.closePlugin() here.
+    });
+  } else if (msg.type === 'import-data' && msg.csvContent) {
+    const csvContent = msg.csvContent;
+    // The UI has already read the file. Now you have the raw CSV text.
+    // Parse it and do something with it here...
+    console.log("Received CSV Content in plugin:", csvContent.substring(0, 50) + "...");
+    
+    // For now, we can notify the user that we received it
+    figma.notify("Received CSV with length: " + csvContent.length);
+  } else {
+    // Make sure to close the plugin when you're done. Otherwise the plugin will
+    // keep running, which shows the cancel button at the bottom of the screen.
+    figma.closePlugin();
+  }
 };
 
 async function extractNode(nodeId: string) {
