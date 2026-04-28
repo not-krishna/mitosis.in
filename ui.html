@@ -27,22 +27,11 @@
     </div>
 
 
-    <div class="section">
-        <h2>Imported Frames</h2>
-        <div id="generatedFramesContainer"></div>
-    </div>
-
-    <div id="status" class="status-box">Status: Ready</div>
-    <div class="actions">
-        <button id="refreshBtn" class="secondary">Refresh Frames</button>
-        <button id="closeBtn" class="danger">Close</button>
-    </div>
-
+   
 <script>
 const frameSelect = document.getElementById('frameSelect');
 const exportBtn = document.getElementById('exportBtn');
 const fileInput = document.getElementById('fileInput');
-const fileNameDisplay = document.getElementById('fileNameDisplay');
 const generateBtn = document.getElementById('generateBtn');
 const generatedFramesContainer = document.getElementById('generatedFramesContainer');
 const status = document.getElementById('status');
@@ -112,6 +101,10 @@ exportBtn.onclick = () => {
     console.log("Message sent to plugin backend");
   }
 };
+
+fileInput.addEventListener('change', () => {
+    generateBtn.disabled = !fileInput.files || fileInput.files.length === 0;
+});
 
 generateBtn.onclick = () => {
     console.log("Button clicked");
