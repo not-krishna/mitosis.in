@@ -8,3 +8,5 @@ dist/
 code.js
 
 *.bak.*
+
+.launcher-pids.json

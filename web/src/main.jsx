@@ -314,6 +314,23 @@ function Icon({ name }) {
       </svg>
     );
   }
+  if (name === "trash-2") {
+    return (
+      <svg {...common}>
+        <path d="M3 6h18M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6h18Z" />
+      </svg>
+    );
+  }
+  if (name === "refresh-cw") {
+    return (
+      <svg {...common}>
+        <path
+          xmlns="http://www.w3.org/2000/svg"
+          d="M19.146 4.854l-1.489 1.489A8 8 0 1 0 12 20a8.094 8.094 0 0 0 7.371-4.886 1 1 0 1 0-1.842-.779A6.071 6.071 0 0 1 12 18a6 6 0 1 1 4.243-10.243l-1.39 1.39a.5.5 0 0 0 .354.854H19.5A.5.5 0 0 0 20 9.5V5.207a.5.5 0 0 0-.854-.353z"
+        />
+      </svg>
+    );
+  }
   return (
     <svg {...common}>
       <circle cx="12" cy="12" r="8" />
@@ -963,19 +980,47 @@ function App() {
     setNotice(
       sent
         ? "Requested fresh templates from Figma."
-        : "Connect the bridge before refreshing Figma.",
+        : "Bridge connection required. Use the refresh button.",
     );
   }, [bridge]);
 
-  const connectBridge = useCallback(() => {
-    resetBoard("Connecting bridge. Canvas reset to an empty board.");
-    bridge.connect();
+  const refreshBridge = useCallback(() => {
+    resetBoard("Refreshing bridge. Canvas reset to an empty board.");
+    bridge.disconnect();
+    setTimeout(() => {
+      bridge.connect();
+      setNotice("Bridge refreshed and reconnected.");
+    }, 500);
   }, [bridge, resetBoard]);
 
-  const disconnectBridge = useCallback(() => {
-    bridge.disconnect();
-    resetBoard("Bridge disconnected. Canvas reset to an empty board.");
-  }, [bridge, resetBoard]);
+  const resetSession = useCallback(() => {
+    // Clear localStorage
+    try {
+      window.localStorage.removeItem("mitosis.columns");
+      window.localStorage.removeItem("mitosis.rows");
+      window.localStorage.removeItem("mitosis.variantSettings");
+    } catch (_error) {
+      // Storage might be blocked
+    }
+    // Reset all state
+    setColumns(seedColumns);
+    setRows(seedRows);
+    setVariantSettings({});
+    setMappings([]);
+    setConflicts([]);
+    setFrames([]);
+    setNodes(initialNodes());
+    setEdges(initialEdges);
+    setTemplateId("");
+    setCampaignName("Campaign_A");
+    setActiveRatios(["1:1", "16:9"]);
+    setSelectedGeneratedFrameId("");
+    setActiveTool("input");
+    nodeCounterRef.current = 1;
+    handledExportsRef.current.clear();
+    handledGenerationsRef.current.clear();
+    setNotice("Session reset. All data cleared.");
+  }, []);
 
   const runAutoMap = useCallback(() => {
     const result = autoMapColumns(columns, templateLayers);
@@ -1030,7 +1075,7 @@ function App() {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = ".csv,text/csv";
-    input.onchange = () => {
+    input.addEventListener("change", () => {
       const file = input.files?.[0];
       if (!file) return;
       file.text().then((text) => {
@@ -1049,7 +1094,7 @@ function App() {
         setConflicts([]);
         setNotice(`Imported ${Math.max(bodyRows.length, 0)} rows.`);
       });
-    };
+    });
     input.click();
   }, []);
 
@@ -1605,18 +1650,18 @@ function App() {
           <button
             type="button"
             className="icon-button"
-            onClick={connectBridge}
-            title="Connect bridge"
+            onClick={refreshBridge}
+            title="Refresh bridge connection"
           >
-            <Icon name="plug" />
+            <Icon name="refresh-cw" />
           </button>
           <button
             type="button"
             className="icon-button"
-            onClick={disconnectBridge}
-            title="Disconnect bridge"
+            onClick={resetSession}
+            title="Reset session and clear all data"
           >
-            <Icon name="unlink" />
+            <Icon name="trash-2" />
           </button>
           <button
             type="button"
