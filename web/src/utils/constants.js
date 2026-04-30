@@ -22,7 +22,12 @@ export const seedRows = [
 ];
 
 export const toolCatalog = [
-  { type: "input", label: "Sheet", detail: "CSV data", icon: "sheet" },
+  {
+    type: "newInput",
+    label: "Sheet",
+    detail: "CSV Data",
+    icon: "sheet",
+  },
   {
     type: "mapping",
     label: "Mapping",

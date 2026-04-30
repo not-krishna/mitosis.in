@@ -119,41 +119,6 @@ function defaultMappingForColumn(column, columnIndex) {
   };
 }
 
-function InputNode({ data }) {
-  const columns = data.columns || [];
-  const rows = data.rows || [];
-
-  return (
-    <section className="flow-node input-node">
-      <Handle type="source" position={Position.Right} />
-      <header>
-        <strong>Sheet</strong>
-        <span>{data.connected ? "connected" : `${rows.length} rows`}</span>
-      </header>
-      <div className="compact-sheet">
-        <div>{columns.length} columns loaded</div>
-        <strong>
-          {columns
-            .slice(0, 4)
-            .map((column) => column.name)
-            .join(" / ") || "No columns"}
-        </strong>
-      </div>
-      <div className="node-actions">
-        <button type="button" onClick={data.importCsv || emptyAction}>
-          Import CSV
-        </button>
-        <button type="button" onClick={data.exportCsv || emptyAction}>
-          Export CSV
-        </button>
-        <button type="button" onClick={data.autoMap || emptyAction}>
-          Auto-map
-        </button>
-      </div>
-    </section>
-  );
-}
-
 function MappingNode({ data }) {
   const mappings = data.mappings || [];
   const conflicts = data.conflicts || [];
@@ -288,25 +253,45 @@ function ScaleNode({ data }) {
   );
 }
 
-function OutputNode({ data }) {
-  const frames = data.frames || [];
+function NewInputNode({ data }) {
+  const columns = data.columns || [];
+  const rows = data.rows || [];
 
   return (
-    <section className="flow-node output-node">
-      <Handle type="target" position={Position.Left} />
+    <section className="flow-node new-input-node">
+      <Handle type="source" position={Position.Right} />
       <header>
-        <strong>Output</strong>
-        <span>
-          {data.connected ? `${frames.length} frames` : "disconnected"}
-        </span>
+        <strong>Sheet</strong>
+        <span>{data.connected ? "connected" : `${rows.length} rows`}</span>
       </header>
-      <p>
-        Generated frames stay in the bottom dock and can be dragged back onto
-        the canvas.
-      </p>
-      <button type="button" onClick={data.refresh || emptyAction}>
-        Refresh document
-      </button>
+      <div
+        className="compact-sheet"
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          flexDirection: "column",
+        }}
+      >
+        <div>{columns.length} columns loaded</div>
+        <strong>
+          {columns
+            .slice(0, 4)
+            .map((column) => column.name)
+            .join(" / ") || "No columns"}
+        </strong>
+      </div>
+      <div className="node-actions">
+        <button type="button" onClick={data.importCsv || emptyAction}>
+          Import CSV
+        </button>
+        <button type="button" onClick={data.exportCsv || emptyAction}>
+          Export CSV
+        </button>
+        <button type="button" onClick={data.autoMap || emptyAction}>
+          Auto-map
+        </button>
+      </div>
     </section>
   );
 }
@@ -412,11 +397,10 @@ function FrameNode({ data }) {
 }
 
 const nodeTypes = {
-  input: InputNode,
+  newInput: NewInputNode,
   mapping: MappingNode,
   generation: GenerationNode,
   scale: ScaleNode,
-  output: OutputNode,
   newOutput: NewOutputNode,
   frame: FrameNode,
 };
