@@ -1,480 +1,633 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<title>Mitosis.in Executor Bridge</title>
-<style>
-  :root {
-      --bg: #111214;
-      --panel: #191b1f;
-      --panel-2: #23262d;
-      --panel-3: #15171b;
-      --fg: #f4f6f8;
-      --muted: #a4acb8;
-      --subtle: #707987;
-      --border: #2a2f38;
-      --border-mid: #39404c;
-      --accent: #6d5dfc;
-      --accent-2: #13b981;
-      --green: #10b981;
-      --amber: #f59e0b;
-      --danger: #ef4444;
-      --shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
-  }
-  * { box-sizing: border-box; }
-  html, body { height: 100%; }
-  body {
-      margin: 0;
-      background: var(--bg);
-      color: var(--fg);
-      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      font-size: 13px;
-  }
-  .bridge {
-      height: 100%;
-      display: grid;
-      grid-template-rows: 56px 1fr auto;
-      background: var(--bg);
-  }
-  .topbar {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 14px;
-      border-bottom: 0.5px solid var(--border);
-      background: #17191d;
-  }
-  .mark {
-      width: 32px;
-      height: 32px;
-      border: 0.5px solid var(--border-mid);
-      border-radius: 8px;
-      display: grid;
-      place-items: center;
-      color: #fff;
-      background: linear-gradient(135deg, var(--accent), #4978ff);
-      font-weight: 700;
-  }
-  .title {
-      min-width: 0;
-      flex: 1;
-  }
-  .title strong {
-      display: block;
-      font-weight: 700;
-  }
-  .title span {
-      display: block;
-      margin-top: 2px;
-      color: var(--muted);
-      font-size: 11px;
-  }
-  .status-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: var(--danger);
-      box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12);
-  }
-  .status-dot.connected {
-      background: var(--green);
-      box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.14);
-  }
-  .status-dot.working {
-      background: var(--amber);
-      box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.14);
-  }
-  main {
-      overflow: auto;
-      padding: 14px;
-      display: grid;
-      gap: 12px;
-      align-content: start;
-  }
-  .card {
-      border: 0.5px solid var(--border);
-      border-radius: 8px;
-      background: var(--panel);
-      padding: 14px;
-      box-shadow: var(--shadow);
-  }
-  .status-card {
-      display: grid;
-      gap: 12px;
-  }
-  h2 {
-      margin: 0 0 10px;
-      color: var(--muted);
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0;
-  }
-  .status-line {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-  }
-  .state-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      min-height: 30px;
-      border: 0.5px solid var(--border-mid);
-      border-radius: 999px;
-      padding: 6px 10px;
-      color: var(--fg);
-      background: var(--panel-3);
-      font-weight: 700;
-  }
-  .state-pill::before {
-      content: "";
-      width: 8px;
-      height: 8px;
-      border-radius: 999px;
-      background: var(--danger);
-  }
-  .state-pill.connected {
-      border-color: rgba(16, 185, 129, 0.5);
-      color: #b7f7dd;
-  }
-  .state-pill.connected::before { background: var(--green); }
-  .state-pill.working {
-      border-color: rgba(245, 158, 11, 0.5);
-      color: #ffe0a3;
-  }
-  .state-pill.working::before { background: var(--amber); }
-  .metrics {
-      display: grid;
-      grid-template-columns: 1fr 96px;
-      gap: 8px;
-  }
-  .metric {
-      min-width: 0;
-      border: 0.5px solid var(--border);
-      border-radius: 6px;
-      background: var(--panel-3);
-      padding: 9px 10px;
-  }
-  .metric span {
-      display: block;
-      color: var(--muted);
-      font-size: 10px;
-      text-transform: uppercase;
-  }
-  .metric strong {
-      display: block;
-      min-width: 0;
-      margin-top: 4px;
-      color: var(--fg);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-  }
-  label {
-      display: block;
-      margin: 10px 0 6px;
-      color: var(--muted);
-      font-size: 11px;
-      text-transform: uppercase;
-  }
-  input {
-      width: 100%;
-      min-height: 30px;
-      border: 0.5px solid var(--border-mid);
-      border-radius: 6px;
-      background: var(--panel-2);
-      color: var(--fg);
-      padding: 6px 8px;
-      font: inherit;
-      outline: none;
-  }
-  input:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(109, 93, 252, 0.18);
-  }
-  button {
-      min-height: 34px;
-      border: 0.5px solid var(--border-mid);
-      border-radius: 6px;
-      background: var(--panel-2);
-      color: var(--fg);
-      cursor: pointer;
-      font: inherit;
-      font-weight: 700;
-      transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
-  }
-  button:hover {
-      border-color: #566070;
-      background: #2a2e37;
-  }
-  button:active {
-      transform: translateY(1px);
-  }
-  button.primary {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: #fff;
-      grid-column: span 2;
-  }
-  .actions {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-top: 10px;
-  }
-  .kv {
-      display: grid;
-      gap: 6px;
-      color: var(--muted);
-      line-height: 1.45;
-  }
-  .kv strong { color: var(--fg); }
-  .log {
-      min-height: 104px;
-      max-height: 164px;
-      overflow: auto;
-      display: grid;
-      gap: 6px;
-      color: var(--muted);
-      font-size: 11px;
-  }
-  .log div {
-      border: 0.5px solid var(--border);
-      border-radius: 6px;
-      background: var(--panel-3);
-      padding: 7px 8px;
-  }
-  footer {
-      border-top: 0.5px solid var(--border);
-      padding: 10px 14px;
-      color: var(--subtle);
-      background: #17191d;
-      line-height: 1.4;
-  }
-</style>
-</head>
-<body>
-<div class="bridge">
-  <header class="topbar">
-      <div class="mark">M</div>
-      <div class="title">
+  <head>
+    <meta charset="utf-8" />
+    <title>Mitosis.in Executor Bridge</title>
+    <style>
+      :root {
+        --bg: #111214;
+        --panel: #191b1f;
+        --panel-2: #23262d;
+        --panel-3: #15171b;
+        --fg: #f4f6f8;
+        --muted: #a4acb8;
+        --subtle: #707987;
+        --border: #2a2f38;
+        --border-mid: #39404c;
+        --accent: #6d5dfc;
+        --accent-2: #13b981;
+        --green: #10b981;
+        --amber: #f59e0b;
+        --danger: #ef4444;
+        --shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font-family:
+          Inter,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        font-size: 13px;
+      }
+      .bridge {
+        height: 100%;
+        display: grid;
+        grid-template-rows: 56px 1fr auto;
+        background: var(--bg);
+      }
+      .topbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        border-bottom: 0.5px solid var(--border);
+        background: #17191d;
+      }
+      .mark {
+        width: 32px;
+        height: 32px;
+        border: 0.5px solid var(--border-mid);
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        background: linear-gradient(135deg, var(--accent), #4978ff);
+        font-weight: 700;
+      }
+      .title {
+        min-width: 0;
+        flex: 1;
+      }
+      .title strong {
+        display: block;
+        font-weight: 700;
+      }
+      .title span {
+        display: block;
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--danger);
+        box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12);
+      }
+      .status-dot.connected {
+        background: var(--green);
+        box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.14);
+      }
+      .status-dot.working {
+        background: var(--amber);
+        box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.14);
+      }
+      main {
+        overflow: auto;
+        padding: 14px;
+        display: grid;
+        gap: 12px;
+        align-content: start;
+      }
+      .card {
+        border: 0.5px solid var(--border);
+        border-radius: 8px;
+        background: var(--panel);
+        padding: 14px;
+        box-shadow: var(--shadow);
+      }
+      .status-card {
+        display: grid;
+        gap: 12px;
+      }
+      h2 {
+        margin: 0 0 10px;
+        color: var(--muted);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0;
+      }
+      .status-line {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .state-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        min-height: 30px;
+        border: 0.5px solid var(--border-mid);
+        border-radius: 999px;
+        padding: 6px 10px;
+        color: var(--fg);
+        background: var(--panel-3);
+        font-weight: 700;
+      }
+      .state-pill::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--danger);
+      }
+      .state-pill.connected {
+        border-color: rgba(16, 185, 129, 0.5);
+        color: #b7f7dd;
+      }
+      .state-pill.connected::before {
+        background: var(--green);
+      }
+      .state-pill.working {
+        border-color: rgba(245, 158, 11, 0.5);
+        color: #ffe0a3;
+      }
+      .state-pill.working::before {
+        background: var(--amber);
+      }
+      .metrics {
+        display: grid;
+        grid-template-columns: 1fr 96px;
+        gap: 8px;
+      }
+      .metric {
+        min-width: 0;
+        border: 0.5px solid var(--border);
+        border-radius: 6px;
+        background: var(--panel-3);
+        padding: 9px 10px;
+      }
+      .metric span {
+        display: block;
+        color: var(--muted);
+        font-size: 10px;
+        text-transform: uppercase;
+      }
+      .metric strong {
+        display: block;
+        min-width: 0;
+        margin-top: 4px;
+        color: var(--fg);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      label {
+        display: block;
+        margin: 10px 0 6px;
+        color: var(--muted);
+        font-size: 11px;
+        text-transform: uppercase;
+      }
+      input {
+        width: 100%;
+        min-height: 30px;
+        border: 0.5px solid var(--border-mid);
+        border-radius: 6px;
+        background: var(--panel-2);
+        color: var(--fg);
+        padding: 6px 8px;
+        font: inherit;
+        outline: none;
+      }
+      input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(109, 93, 252, 0.18);
+      }
+      button {
+        min-height: 34px;
+        border: 0.5px solid var(--border-mid);
+        border-radius: 6px;
+        background: var(--panel-2);
+        color: var(--fg);
+        cursor: pointer;
+        font: inherit;
+        font-weight: 700;
+        transition:
+          transform 120ms ease,
+          border-color 120ms ease,
+          background 120ms ease;
+      }
+      button:hover {
+        border-color: #566070;
+        background: #2a2e37;
+      }
+      button:active {
+        transform: translateY(1px);
+      }
+      button.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+        grid-column: span 2;
+      }
+      .actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .kv {
+        display: grid;
+        gap: 6px;
+        color: var(--muted);
+        line-height: 1.45;
+      }
+      .kv strong {
+        color: var(--fg);
+      }
+      .log {
+        min-height: 104px;
+        max-height: 164px;
+        overflow: auto;
+        display: grid;
+        gap: 6px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .log div {
+        border: 0.5px solid var(--border);
+        border-radius: 6px;
+        background: var(--panel-3);
+        padding: 7px 8px;
+      }
+      footer {
+        border-top: 0.5px solid var(--border);
+        padding: 10px 14px;
+        color: var(--subtle);
+        background: #17191d;
+        line-height: 1.4;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bridge">
+      <header class="topbar">
+        <div class="mark">M</div>
+        <div class="title">
           <strong>Mitosis.in Executor</strong>
           <span>Figma bridge control</span>
-      </div>
-      <div id="statusDot" class="status-dot" title="Disconnected"></div>
-  </header>
-  <main>
-      <section class="card status-card">
+        </div>
+        <div id="statusDot" class="status-dot" title="Disconnected"></div>
+      </header>
+      <main>
+        <section class="card status-card">
           <div class="status-line">
-              <h2>Hosted App Bridge</h2>
-              <div id="bridgeStatus" class="state-pill">Disconnected</div>
+            <h2>Hosted App Bridge</h2>
+            <div id="bridgeStatus" class="state-pill">Disconnected</div>
           </div>
           <div class="metrics">
-              <div class="metric">
-                  <span>Session</span>
-                  <strong id="sessionLabel"></strong>
-              </div>
-              <div class="metric">
-                  <span>Templates</span>
-                  <strong id="templateCount">0</strong>
-              </div>
+            <div class="metric">
+              <span>Session</span>
+              <strong id="sessionLabel"></strong>
+            </div>
+            <div class="metric">
+              <span>Templates</span>
+              <strong id="templateCount">0</strong>
+            </div>
           </div>
           <label for="appUrlInput">Hosted app URL</label>
-          <input id="appUrlInput" value="http://localhost:5173">
+          <input id="appUrlInput" value="http://localhost:5173" />
           <label for="wsUrlInput">WebSocket bridge URL</label>
-          <input id="wsUrlInput" value="ws://localhost:8787">
+          <input id="wsUrlInput" value="ws://localhost:8787" />
           <div class="actions">
-              <button type="button" id="connectBtn" class="primary">Connect</button>
-              <button type="button" id="openAppBtn">Open app</button>
-              <button type="button" id="refreshBtn">Refresh document</button>
-              <button type="button" id="copySessionBtn">Copy session</button>
+            <button type="button" id="connectBtn" class="primary">
+              Connect
+            </button>
+            <button
+              type="button"
+              id="disconnectBtn"
+              class="primary"
+              style="display: none; background: #ef4444; border-color: #ef4444"
+            >
+              Disconnect
+            </button>
+            <button type="button" id="openAppBtn">Open app</button>
+            <button type="button" id="refreshBtn">Refresh document</button>
+            <button type="button" id="copySessionBtn">Copy session</button>
           </div>
-      </section>
-      <section class="card">
+        </section>
+        <section class="card status-card">
+          <h2>Services Control</h2>
+          <div class="metrics">
+            <div class="metric">
+              <span>Status</span>
+              <strong id="servicesStatus">Stopped</strong>
+            </div>
+          </div>
+          <div class="actions">
+            <button type="button" id="startServicesBtn" class="primary">
+              Start Services
+            </button>
+            <button
+              type="button"
+              id="stopServicesBtn"
+              class="primary"
+              style="display: none; background: #ef4444; border-color: #ef4444"
+            >
+              Stop Services
+            </button>
+          </div>
+        </section>
+        <section class="card">
           <h2>Executor Activity</h2>
           <div id="log" class="log"></div>
-      </section>
-  </main>
-  <footer>
-      Keep this plugin window open while the hosted app is running. The plugin only reads Figma structure and applies commands; the web app owns the workflow state.
-  </footer>
-</div>
+        </section>
+      </main>
+      <footer>
+        Keep this plugin window open while the hosted app is running. The plugin
+        only reads Figma structure and applies commands; the web app owns the
+        workflow state.
+      </footer>
+    </div>
 
-<script>
-const statusDot = document.getElementById('statusDot');
-const bridgeStatus = document.getElementById('bridgeStatus');
-const sessionLabel = document.getElementById('sessionLabel');
-const templateCount = document.getElementById('templateCount');
-const appUrlInput = document.getElementById('appUrlInput');
-const wsUrlInput = document.getElementById('wsUrlInput');
-const connectBtn = document.getElementById('connectBtn');
-const openAppBtn = document.getElementById('openAppBtn');
-const refreshBtn = document.getElementById('refreshBtn');
-const copySessionBtn = document.getElementById('copySessionBtn');
-const logEl = document.getElementById('log');
+    <script>
+      const statusDot = document.getElementById("statusDot");
+      const bridgeStatus = document.getElementById("bridgeStatus");
+      const sessionLabel = document.getElementById("sessionLabel");
+      const templateCount = document.getElementById("templateCount");
+      const appUrlInput = document.getElementById("appUrlInput");
+      const wsUrlInput = document.getElementById("wsUrlInput");
+      const connectBtn = document.getElementById("connectBtn");
+      const disconnectBtn = document.getElementById("disconnectBtn");
+      const openAppBtn = document.getElementById("openAppBtn");
+      const refreshBtn = document.getElementById("refreshBtn");
+      const copySessionBtn = document.getElementById("copySessionBtn");
+      const startServicesBtn = document.getElementById("startServicesBtn");
+      const stopServicesBtn = document.getElementById("stopServicesBtn");
+      const servicesStatus = document.getElementById("servicesStatus");
+      const logEl = document.getElementById("log");
 
-function readStorage(key) {
-    try {
-        return window.localStorage.getItem(key);
-    } catch (_error) {
-        return null;
-    }
-}
-
-function writeStorage(key, value) {
-    try {
-        window.localStorage.setItem(key, value);
-    } catch (_error) {
-        // Figma can run plugin UIs from data: URLs where storage is disabled.
-    }
-}
-
-const savedSession = readStorage('mitosis.sessionId');
-const sessionId = savedSession || `mitosis-${Math.random().toString(36).slice(2, 8)}`;
-writeStorage('mitosis.sessionId', sessionId);
-sessionLabel.textContent = sessionId;
-appUrlInput.value = readStorage('mitosis.appUrl') || appUrlInput.value;
-wsUrlInput.value = readStorage('mitosis.wsUrl') || wsUrlInput.value;
-
-let socket = null;
-let lastTemplates = [];
-
-function addLog(message) {
-    const item = document.createElement('div');
-    item.textContent = `${new Date().toLocaleTimeString()} - ${message}`;
-    logEl.prepend(item);
-}
-
-function setStatus(status) {
-    bridgeStatus.textContent = status;
-    bridgeStatus.classList.toggle('connected', status === 'Connected');
-    bridgeStatus.classList.toggle('working', status === 'Working');
-    statusDot.classList.toggle('connected', status === 'Connected');
-    statusDot.classList.toggle('working', status === 'Working');
-    statusDot.title = status;
-}
-
-function sendBridge(payload) {
-    if (!socket || socket.readyState !== WebSocket.OPEN) return false;
-    socket.send(JSON.stringify({ sessionId, ...payload }));
-    return true;
-}
-
-function connectBridge() {
-    if (socket && socket.readyState < WebSocket.CLOSING) socket.close();
-    writeStorage('mitosis.appUrl', appUrlInput.value.trim());
-    writeStorage('mitosis.wsUrl', wsUrlInput.value.trim());
-    try {
-        socket = new WebSocket(wsUrlInput.value.trim());
-    } catch (_error) {
-        setStatus('Disconnected');
-        addLog('Bridge URL is invalid');
-        return;
-    }
-    setStatus('Working');
-    socket.onopen = () => {
-        setStatus('Connected');
-        addLog('Bridge connected');
-        sendBridge({ kind: 'register', role: 'plugin' });
-        sendBridge({ kind: 'plugin-event', event: { type: 'executor-ready', sessionId, templates: lastTemplates } });
-        parent.postMessage({ pluginMessage: { type: 'refresh-document' } }, '*');
-    };
-    socket.onclose = () => {
-        setStatus('Disconnected');
-        addLog('Bridge disconnected');
-    };
-    socket.onerror = () => {
-        setStatus('Disconnected');
-        addLog('Bridge connection error');
-    };
-    socket.onmessage = (event) => {
-        let packet = null;
+      function readStorage(key) {
         try {
-            packet = JSON.parse(event.data);
+          return window.localStorage.getItem(key);
         } catch (_error) {
-            return;
+          return null;
         }
-        if (packet.kind === 'app-command' && packet.command) {
-            addLog(`Command: ${packet.command.type}`);
-            parent.postMessage({ pluginMessage: packet.command }, '*');
-        }
-        if (packet.kind === 'ping') {
-            sendBridge({ kind: 'pong', role: 'plugin' });
-        }
-    };
-}
+      }
 
-window.addEventListener('message', (event) => {
-    const msg = event.data.pluginMessage;
-    if (!msg) return;
-    if (msg.type === 'template-metadata') {
-        lastTemplates = msg.templates || [];
-        templateCount.textContent = String(lastTemplates.length);
-    }
-    if (msg.type === 'fetch-images') {
-        addLog(`Fetching ${msg.urls.length} images`);
-        Promise.all(msg.urls.map(async (url) => {
-            try {
+      function writeStorage(key, value) {
+        try {
+          window.localStorage.setItem(key, value);
+        } catch (_error) {
+          // Figma can run plugin UIs from data: URLs where storage is disabled.
+        }
+      }
+
+      const savedSession = readStorage("mitosis.sessionId");
+      const sessionId =
+        savedSession || `mitosis-${Math.random().toString(36).slice(2, 8)}`;
+      writeStorage("mitosis.sessionId", sessionId);
+      sessionLabel.textContent = sessionId;
+      appUrlInput.value = readStorage("mitosis.appUrl") || appUrlInput.value;
+      wsUrlInput.value = readStorage("mitosis.wsUrl") || wsUrlInput.value;
+
+      let socket = null;
+      let lastTemplates = [];
+      let isConnected = false;
+
+      function addLog(message) {
+        const item = document.createElement("div");
+        item.textContent = `${new Date().toLocaleTimeString()} - ${message}`;
+        logEl.prepend(item);
+        while (logEl.children.length > 20) logEl.removeChild(logEl.lastChild);
+      }
+
+      function setStatus(status) {
+        bridgeStatus.textContent = status;
+        bridgeStatus.classList.toggle("connected", status === "Connected");
+        bridgeStatus.classList.toggle("working", status === "Working");
+        statusDot.classList.toggle("connected", status === "Connected");
+        statusDot.classList.toggle("working", status === "Working");
+        statusDot.title = status;
+
+        isConnected = status === "Connected";
+        connectBtn.style.display = isConnected ? "none" : "block";
+        disconnectBtn.style.display = isConnected ? "block" : "none";
+      }
+
+      function updateServicesUI() {
+        const isRunning = servicesStatus.textContent === "Running";
+        startServicesBtn.style.display = isRunning ? "none" : "block";
+        stopServicesBtn.style.display = isRunning ? "block" : "none";
+      }
+
+      function sendBridge(payload) {
+        if (!socket || socket.readyState !== WebSocket.OPEN) return false;
+        socket.send(JSON.stringify({ sessionId, ...payload }));
+        return true;
+      }
+
+      function connectBridge() {
+        if (socket && socket.readyState < WebSocket.CLOSING) socket.close();
+        writeStorage("mitosis.appUrl", appUrlInput.value.trim());
+        writeStorage("mitosis.wsUrl", wsUrlInput.value.trim());
+        try {
+          socket = new WebSocket(wsUrlInput.value.trim());
+        } catch (_error) {
+          setStatus("Disconnected");
+          addLog("Bridge URL is invalid");
+          return;
+        }
+        setStatus("Working");
+        socket.onopen = () => {
+          setStatus("Connected");
+          addLog("Bridge connected");
+          sendBridge({ kind: "register", role: "plugin" });
+          sendBridge({
+            kind: "plugin-event",
+            event: {
+              type: "executor-ready",
+              sessionId,
+              templates: lastTemplates,
+            },
+          });
+          parent.postMessage(
+            { pluginMessage: { type: "refresh-document" } },
+            "*",
+          );
+        };
+        socket.onclose = () => {
+          setStatus("Disconnected");
+          addLog("Bridge disconnected");
+        };
+        socket.onerror = () => {
+          setStatus("Disconnected");
+          addLog("Bridge connection error");
+        };
+        socket.onmessage = (event) => {
+          let packet = null;
+          try {
+            packet = JSON.parse(event.data);
+          } catch (_error) {
+            return;
+          }
+          if (packet.kind === "app-command" && packet.command) {
+            addLog(`Command: ${packet.command.type}`);
+            parent.postMessage({ pluginMessage: packet.command }, "*");
+          }
+          if (packet.kind === "ping") {
+            sendBridge({ kind: "pong", role: "plugin" });
+          }
+        };
+      }
+
+      function disconnectBridge() {
+        if (socket) {
+          socket.close();
+          socket = null;
+        }
+        setStatus("Disconnected");
+        addLog("Bridge disconnected");
+      }
+
+      function startServices() {
+        addLog("Starting services...");
+        servicesStatus.textContent = "Starting...";
+        updateServicesUI();
+
+        fetch("http://localhost:3000/launcher/start", { method: "POST" })
+          .then(() => {
+            addLog("Services started");
+            servicesStatus.textContent = "Running";
+            updateServicesUI();
+            setTimeout(() => connectBridge(), 2000);
+          })
+          .catch((error) => {
+            addLog(`Failed to start services: ${error.message}`);
+            servicesStatus.textContent = "Failed";
+            updateServicesUI();
+          });
+      }
+
+      function stopServices() {
+        addLog("Stopping services...");
+        disconnectBridge();
+        servicesStatus.textContent = "Stopping...";
+        updateServicesUI();
+
+        fetch("http://localhost:3000/launcher/stop", { method: "POST" })
+          .then(() => {
+            addLog("Services stopped");
+            servicesStatus.textContent = "Stopped";
+            updateServicesUI();
+          })
+          .catch((error) => {
+            addLog(`Failed to stop services: ${error.message}`);
+            servicesStatus.textContent = "Error";
+            updateServicesUI();
+          });
+      }
+
+      window.addEventListener("message", (event) => {
+        const msg = event.data.pluginMessage;
+        if (!msg) return;
+        if (msg.type === "template-metadata") {
+          lastTemplates = msg.templates || [];
+          templateCount.textContent = String(lastTemplates.length);
+        }
+        if (msg.type === "fetch-images") {
+          addLog(`Fetching ${msg.urls.length} images`);
+          Promise.all(
+            msg.urls.map(async (url) => {
+              try {
                 const response = await fetch(url);
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const arrayBuffer = await response.arrayBuffer();
                 return { url, bytes: Array.from(new Uint8Array(arrayBuffer)) };
-            } catch (error) {
+              } catch (error) {
                 addLog(`Image fetch failed: ${url}`);
                 return null;
-            }
-        })).then((results) => {
+              }
+            }),
+          ).then((results) => {
             const imageBytesMap = {};
             results.forEach((result) => {
-                if (result) imageBytesMap[result.url] = result.bytes;
+              if (result) imageBytesMap[result.url] = result.bytes;
             });
-            parent.postMessage({ pluginMessage: {
-                type: 'images-fetched',
-                imageBytesMap,
-                rows: msg.rows,
-                masterFrameId: msg.masterFrameId,
-                csvContent: msg.csvContent,
-                mappings: msg.mappings,
-                ratioTargets: msg.ratioTargets,
-                autoColorEnabled: msg.autoColorEnabled,
-                autoColorTargetIds: msg.autoColorTargetIds,
-                gap: msg.gap,
-                gridColumns: msg.gridColumns,
-                scaleMode: msg.scaleMode,
-                campaignName: msg.campaignName,
-                variantSetName: msg.variantSetName,
-                generationId: msg.generationId,
-            } }, '*');
-        });
-    }
-    if (msg.type === 'generation-complete') {
-        addLog(`Generated ${msg.frameNames ? msg.frameNames.length : 0} frames`);
-    } else {
-        addLog(`Plugin event: ${msg.type}`);
-    }
-    sendBridge({ kind: 'plugin-event', event: msg });
-});
+            parent.postMessage(
+              {
+                pluginMessage: {
+                  type: "images-fetched",
+                  imageBytesMap,
+                  rows: msg.rows,
+                  masterFrameId: msg.masterFrameId,
+                  csvContent: msg.csvContent,
+                  mappings: msg.mappings,
+                  ratioTargets: msg.ratioTargets,
+                  autoColorEnabled: msg.autoColorEnabled,
+                  autoColorTargetIds: msg.autoColorTargetIds,
+                  gap: msg.gap,
+                  gridColumns: msg.gridColumns,
+                  scaleMode: msg.scaleMode,
+                  campaignName: msg.campaignName,
+                  variantSetName: msg.variantSetName,
+                  generationId: msg.generationId,
+                },
+              },
+              "*",
+            );
+          });
+        }
+        if (msg.type === "generation-complete") {
+          addLog(
+            `Generated ${msg.frameNames ? msg.frameNames.length : 0} frames`,
+          );
+        } else {
+          addLog(`Plugin event: ${msg.type}`);
+        }
+        sendBridge({ kind: "plugin-event", event: msg });
+      });
 
-connectBtn.onclick = connectBridge;
-openAppBtn.onclick = () => {
-    try {
-        const appUrl = new URL(appUrlInput.value.trim());
-        appUrl.searchParams.set('session', sessionId);
-        appUrl.searchParams.set('bridge', wsUrlInput.value.trim());
-        parent.postMessage({ pluginMessage: { type: 'open-hosted-app', url: appUrl.toString() } }, '*');
-        addLog('Opening hosted app');
-    } catch (_error) {
-        addLog('Hosted app URL is invalid');
-    }
-};
-refreshBtn.onclick = () => parent.postMessage({ pluginMessage: { type: 'refresh-document' } }, '*');
-copySessionBtn.onclick = () => navigator.clipboard.writeText(sessionId).then(
-    () => addLog('Session copied'),
-    () => addLog(`Session: ${sessionId}`)
-);
+      connectBtn.onclick = connectBridge;
+      disconnectBtn.onclick = disconnectBridge;
+      startServicesBtn.onclick = startServices;
+      stopServicesBtn.onclick = stopServices;
+      openAppBtn.onclick = () => {
+        try {
+          const appUrl = new URL(appUrlInput.value.trim());
+          appUrl.searchParams.set("session", sessionId);
+          appUrl.searchParams.set("bridge", wsUrlInput.value.trim());
+          parent.postMessage(
+            {
+              pluginMessage: {
+                type: "open-hosted-app",
+                url: appUrl.toString(),
+              },
+            },
+            "*",
+          );
+          addLog("Opening hosted app");
+        } catch (_error) {
+          addLog("Hosted app URL is invalid");
+        }
+      };
+      refreshBtn.onclick = () =>
+        parent.postMessage(
+          { pluginMessage: { type: "refresh-document" } },
+          "*",
+        );
+      copySessionBtn.onclick = () =>
+        navigator.clipboard.writeText(sessionId).then(
+          () => addLog("Session copied"),
+          () => addLog(`Session: ${sessionId}`),
+        );
 
-connectBridge();
-</script>
-</body>
+      // Initial setup
+      updateServicesUI();
+    </script>
+  </body>
 </html>

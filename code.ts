@@ -67,7 +67,11 @@ interface GenerationContext {
   ratioName?: string;
 }
 
-figma.showUI(__html__, { width: 420, height: 560, title: "Mitosis.in Executor" });
+figma.showUI(__html__, {
+  width: 420,
+  height: 560,
+  title: "Mitosis.in Executor",
+});
 
 function isTemplateNode(node: BaseNode | null): node is TemplateNode {
   return !!node && (node.type === "FRAME" || node.type === "COMPONENT");
@@ -80,14 +84,16 @@ function getTopLevelTemplates() {
 }
 
 function postTemplateMetadata() {
-  const templates = figma.currentPage.children.filter(isTemplateNode).map((node) => ({
-    id: node.id,
-    name: node.name,
-    type: node.type,
-    width: node.width,
-    height: node.height,
-    layerOptions: scanLayerOptions(node),
-  }));
+  const templates = figma.currentPage.children
+    .filter(isTemplateNode)
+    .map((node) => ({
+      id: node.id,
+      name: node.name,
+      type: node.type,
+      width: node.width,
+      height: node.height,
+      layerOptions: scanLayerOptions(node),
+    }));
 
   figma.ui.postMessage({ type: "template-metadata", templates });
 }
@@ -225,7 +231,10 @@ const parseCSV = (text: string) => {
 };
 
 setTimeout(() => {
-  figma.ui.postMessage({ type: "frames-loaded", frames: getTopLevelTemplates() });
+  figma.ui.postMessage({
+    type: "frames-loaded",
+    frames: getTopLevelTemplates(),
+  });
 }, 100);
 
 setTimeout(() => {
@@ -245,7 +254,10 @@ const loadFonts = async (textNode: TextNode) => {
 };
 
 function hasFills(node: SceneNode): node is SceneNode & MinimalFillsMixin {
-  return "fills" in node && Array.isArray((node as SceneNode & MinimalFillsMixin).fills);
+  return (
+    "fills" in node &&
+    Array.isArray((node as SceneNode & MinimalFillsMixin).fills)
+  );
 }
 
 function getFills(node: SceneNode) {
@@ -267,7 +279,9 @@ function firstSolidFillHex(node: SceneNode) {
     return null;
   }
 
-  const solidFill = fills.find((fill: Paint) => fill.type === "SOLID") as SolidPaint | undefined;
+  const solidFill = fills.find((fill: Paint) => fill.type === "SOLID") as
+    | SolidPaint
+    | undefined;
   if (!solidFill) {
     return null;
   }
@@ -327,18 +341,30 @@ function inferColumnKind(header: string, values: string[]): MappingKind {
     return "SKIP";
   }
 
-  if (/^https?:\/\//i.test(sample) || /(IMAGE|IMG|PHOTO|LOGO|PICTURE|BG|BACKGROUND)/.test(headerUpper)) {
+  if (
+    /^https?:\/\//i.test(sample) ||
+    /(IMAGE|IMG|PHOTO|LOGO|PICTURE|BG|BACKGROUND)/.test(headerUpper)
+  ) {
     return "IMAGE";
   }
 
-  if (isHexColor(sample) || /(COLOR|COLOUR|PRIMARY|SECONDARY|TERTIARY|ACCENT|THEME|TEXT_COLOR)/.test(headerUpper)) {
+  if (
+    isHexColor(sample) ||
+    /(COLOR|COLOUR|PRIMARY|SECONDARY|TERTIARY|ACCENT|THEME|TEXT_COLOR)/.test(
+      headerUpper,
+    )
+  ) {
     return "COLOR";
   }
 
   return "TEXT";
 }
 
-function layerLooksMappedToHeader(layer: LayerOption, header: string, kind: TargetKind) {
+function layerLooksMappedToHeader(
+  layer: LayerOption,
+  header: string,
+  kind: TargetKind,
+) {
   const layerKey = normalizeKey(layer.name);
   const headerKey = keyForKind(header, kind);
 
@@ -372,8 +398,12 @@ function matchTargetsForColumn(
   const header = rows[0][columnIndex];
   const values = valuesForColumn(rows, columnIndex);
   const sample = values.find((value) => value.trim()) || "";
-  const compatibleLayers = layerOptions.filter((layer) => layer.targetKinds.indexOf(kind) >= 0);
-  const matches = compatibleLayers.filter((layer) => layerLooksMappedToHeader(layer, header, kind)).map((layer) => layer.id);
+  const compatibleLayers = layerOptions.filter(
+    (layer) => layer.targetKinds.indexOf(kind) >= 0,
+  );
+  const matches = compatibleLayers
+    .filter((layer) => layerLooksMappedToHeader(layer, header, kind))
+    .map((layer) => layer.id);
 
   if (matches.length > 0) {
     return matches;
@@ -401,7 +431,9 @@ function matchTargetsForColumn(
   }
 
   if (kind === "TEXT") {
-    const fallback = compatibleLayers.find((layer) => !usedTextTargets.has(layer.id));
+    const fallback = compatibleLayers.find(
+      (layer) => !usedTextTargets.has(layer.id),
+    );
     if (fallback) {
       usedTextTargets.add(fallback.id);
       return [fallback.id];
@@ -409,7 +441,9 @@ function matchTargetsForColumn(
   }
 
   if (kind === "IMAGE") {
-    const fallback = compatibleLayers.find((layer) => !usedImageTargets.has(layer.id));
+    const fallback = compatibleLayers.find(
+      (layer) => !usedImageTargets.has(layer.id),
+    );
     if (fallback) {
       usedImageTargets.add(fallback.id);
       return [fallback.id];
@@ -431,13 +465,23 @@ function buildMappingPlan(rows: string[][], masterNode: TemplateNode) {
       continue;
     }
 
-    const inferredKind = inferColumnKind(header, valuesForColumn(rows, columnIndex));
+    const inferredKind = inferColumnKind(
+      header,
+      valuesForColumn(rows, columnIndex),
+    );
     const kind = inferredKind;
     const tag = kind === "SKIP" ? "" : tagForKind(header, kind);
     const targetIds =
       kind === "SKIP"
         ? []
-        : matchTargetsForColumn(rows, columnIndex, kind, layerOptions, usedTextTargets, usedImageTargets);
+        : matchTargetsForColumn(
+            rows,
+            columnIndex,
+            kind,
+            layerOptions,
+            usedTextTargets,
+            usedImageTargets,
+          );
 
     mappings.push({
       columnIndex,
@@ -465,7 +509,11 @@ function isNodeInsideRoot(node: BaseNode, root: BaseNode) {
   return false;
 }
 
-async function renameTargets(masterNode: TemplateNode, mappings: ColumnMapping[], autoColorTargetIds: string[] = []) {
+async function renameTargets(
+  masterNode: TemplateNode,
+  mappings: ColumnMapping[],
+  autoColorTargetIds: string[] = [],
+) {
   const usedTargetIds = new Set<string>();
 
   for (const mapping of mappings) {
@@ -504,7 +552,7 @@ function hslToRgb(hue: number, saturation: number, lightness: number): RGB {
   const s = saturation / 100;
   const l = lightness / 100;
   const c = (1 - Math.abs(2 * l - 1)) * s;
-  const x = c * (1 - Math.abs((hue / 60) % 2 - 1));
+  const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
   const m = l - c / 2;
   let r = 0;
   let g = 0;
@@ -541,7 +589,9 @@ function autoColorFor(rowNumber: number, colorIndex: number) {
 
 function collectImageUrls(rows: string[][], mappings: ColumnMapping[]) {
   const urlsToFetch = new Set<string>();
-  const imageMappings = mappings.filter((mapping) => mapping.kind === "IMAGE" && mapping.targetIds.length > 0);
+  const imageMappings = mappings.filter(
+    (mapping) => mapping.kind === "IMAGE" && mapping.targetIds.length > 0,
+  );
 
   for (let rowIndex = 1; rowIndex < rows.length; rowIndex++) {
     const row = rows[rowIndex];
@@ -566,7 +616,9 @@ async function applyMappedValue(
 ) {
   if (mapping.kind === "TEXT") {
     if (targetNode.type !== "TEXT") {
-      warnings.push(`Layer "${targetNode.name}" is mapped as text but is not a text layer.`);
+      warnings.push(
+        `Layer "${targetNode.name}" is mapped as text but is not a text layer.`,
+      );
       return;
     }
 
@@ -574,7 +626,9 @@ async function applyMappedValue(
       await loadFonts(targetNode);
       targetNode.characters = value;
     } catch (error) {
-      warnings.push(`Could not edit text layer "${targetNode.name}" because its font could not be loaded.`);
+      warnings.push(
+        `Could not edit text layer "${targetNode.name}" because its font could not be loaded.`,
+      );
       console.error(error);
     }
 
@@ -583,12 +637,16 @@ async function applyMappedValue(
 
   if (mapping.kind === "IMAGE") {
     if (!hasFills(targetNode)) {
-      warnings.push(`Layer "${targetNode.name}" is mapped as image but cannot receive fills.`);
+      warnings.push(
+        `Layer "${targetNode.name}" is mapped as image but cannot receive fills.`,
+      );
       return;
     }
 
     if (!value.startsWith("http://") && !value.startsWith("https://")) {
-      warnings.push(`Skipped image column "${mapping.header}" because the value is not a URL.`);
+      warnings.push(
+        `Skipped image column "${mapping.header}" because the value is not a URL.`,
+      );
       return;
     }
 
@@ -610,12 +668,16 @@ async function applyMappedValue(
 
   if (mapping.kind === "COLOR") {
     if (!hasFills(targetNode)) {
-      warnings.push(`Layer "${targetNode.name}" is mapped as color but cannot receive fills.`);
+      warnings.push(
+        `Layer "${targetNode.name}" is mapped as color but cannot receive fills.`,
+      );
       return;
     }
 
     if (!isHexColor(value)) {
-      warnings.push(`Skipped color column "${mapping.header}" because "${value}" is not a hex color.`);
+      warnings.push(
+        `Skipped color column "${mapping.header}" because "${value}" is not a hex color.`,
+      );
       return;
     }
 
@@ -624,7 +686,9 @@ async function applyMappedValue(
 }
 
 function applySolidColorToTag(root: TemplateNode, tag: string, color: RGB) {
-  const targetNodes = root.findAll((node) => node.name.trim() === tag && hasFills(node));
+  const targetNodes = root.findAll(
+    (node) => node.name.trim() === tag && hasFills(node),
+  );
 
   for (const targetNode of targetNodes) {
     setFills(targetNode, [{ type: "SOLID", color }]);
@@ -640,13 +704,22 @@ async function generateFrames(
   autoColorTargetIds: string[],
   generationContext?: GenerationContext,
 ) {
-  await renameTargets(masterNode, mappings, autoColorEnabled ? autoColorTargetIds : []);
+  await renameTargets(
+    masterNode,
+    mappings,
+    autoColorEnabled ? autoColorTargetIds : [],
+  );
 
   const generatedNodes: SceneNode[] = [];
   const warnings: string[] = [];
   const idColumnIndex = rows[0].findIndex(isIdHeader);
-  const activeMappings = mappings.filter((mapping) => mapping.kind !== "SKIP" && mapping.tag && mapping.targetIds.length > 0);
-  const colorMappings = activeMappings.filter((mapping) => mapping.kind === "COLOR");
+  const activeMappings = mappings.filter(
+    (mapping) =>
+      mapping.kind !== "SKIP" && mapping.tag && mapping.targetIds.length > 0,
+  );
+  const colorMappings = activeMappings.filter(
+    (mapping) => mapping.kind === "COLOR",
+  );
   const gap = 80;
   let generatedIndex = 0;
 
@@ -658,26 +731,43 @@ async function generateFrames(
 
     const duplicate = masterNode.clone();
     const fallbackId = `Variation ${rowIndex}`;
-    const variationId = ((idColumnIndex >= 0 ? row[idColumnIndex] : row[0]) || fallbackId).trim() || fallbackId;
+    const variationId =
+      (
+        (idColumnIndex >= 0 ? row[idColumnIndex] : row[0]) || fallbackId
+      ).trim() || fallbackId;
     const rowOffset = Math.floor(generatedIndex / 3);
     const columnOffset = generatedIndex % 3;
 
-    duplicate.x = masterNode.x + masterNode.width + gap + columnOffset * (masterNode.width + gap);
+    duplicate.x =
+      masterNode.x +
+      masterNode.width +
+      gap +
+      columnOffset * (masterNode.width + gap);
     duplicate.y = masterNode.y + rowOffset * (masterNode.height + gap);
     duplicate.name = `${masterNode.name}_${variationId}`;
 
     for (const mapping of activeMappings) {
       let value = (row[mapping.columnIndex] || "").trim();
-      const targetNodes = duplicate.findAll((node) => node.name.trim() === mapping.tag);
+      const targetNodes = duplicate.findAll(
+        (node) => node.name.trim() === mapping.tag,
+      );
 
       if (targetNodes.length === 0) {
-        warnings.push(`No mapped layers found for "${mapping.header}" in "${duplicate.name}".`);
+        warnings.push(
+          `No mapped layers found for "${mapping.header}" in "${duplicate.name}".`,
+        );
         continue;
       }
 
       if (autoColorEnabled && mapping.kind === "COLOR") {
-        const colorIndex = colorMappings.findIndex((colorMapping) => colorMapping.columnIndex === mapping.columnIndex);
-        value = rgbToHex(...rgbToTuple(autoColorFor(rowIndex - 1, colorIndex < 0 ? 0 : colorIndex)));
+        const colorIndex = colorMappings.findIndex(
+          (colorMapping) => colorMapping.columnIndex === mapping.columnIndex,
+        );
+        value = rgbToHex(
+          ...rgbToTuple(
+            autoColorFor(rowIndex - 1, colorIndex < 0 ? 0 : colorIndex),
+          ),
+        );
       }
 
       if (!value) {
@@ -685,12 +775,22 @@ async function generateFrames(
       }
 
       for (const targetNode of targetNodes) {
-        await applyMappedValue(targetNode, mapping, value, imageHashMap, warnings);
+        await applyMappedValue(
+          targetNode,
+          mapping,
+          value,
+          imageHashMap,
+          warnings,
+        );
       }
     }
 
     if (autoColorEnabled && autoColorTargetIds.length > 0) {
-      applySolidColorToTag(duplicate, "#AUTO_COLOR", autoColorFor(rowIndex - 1, colorMappings.length));
+      applySolidColorToTag(
+        duplicate,
+        "#AUTO_COLOR",
+        autoColorFor(rowIndex - 1, colorMappings.length),
+      );
     }
 
     generatedNodes.push(duplicate);
@@ -706,8 +806,11 @@ async function generateFrames(
     figma.viewport.scrollAndZoomIntoView(generatedNodes);
   }
 
-  const warningSummary = warnings.length > 0 ? ` (${warnings.length} warnings)` : "";
-  figma.notify(`Generated ${generatedNodes.length} variation${generatedNodes.length === 1 ? "" : "s"}${warningSummary}.`);
+  const warningSummary =
+    warnings.length > 0 ? ` (${warnings.length} warnings)` : "";
+  figma.notify(
+    `Generated ${generatedNodes.length} variation${generatedNodes.length === 1 ? "" : "s"}${warningSummary}.`,
+  );
 
   if (warnings.length > 0) {
     console.warn(warnings.join("\n"));
@@ -725,7 +828,10 @@ function rgbToTuple(rgb: RGB): [number, number, number] {
   return [rgb.r, rgb.g, rgb.b];
 }
 
-async function prepareGeneration(masterFrameId: string | undefined, csvContent: string) {
+async function prepareGeneration(
+  masterFrameId: string | undefined,
+  csvContent: string,
+) {
   if (!masterFrameId) {
     postGenerationError("Select a master frame before generating.");
     return;
@@ -733,7 +839,9 @@ async function prepareGeneration(masterFrameId: string | undefined, csvContent: 
 
   const rows = parseCSV(csvContent);
   if (rows.length < 2) {
-    postGenerationError("CSV must have a header row and at least one data row.");
+    postGenerationError(
+      "CSV must have a header row and at least one data row.",
+    );
     return;
   }
 
@@ -770,7 +878,9 @@ async function importMappedData(
 
   const rows = parseCSV(csvContent);
   if (rows.length < 2) {
-    postGenerationError("CSV must have a header row and at least one data row.");
+    postGenerationError(
+      "CSV must have a header row and at least one data row.",
+    );
     return;
   }
 
@@ -798,10 +908,22 @@ async function importMappedData(
     return;
   }
 
-  await generateFrames(masterNode, rows, mappings, {}, autoColorEnabled, autoColorTargetIds, generationContext);
+  await generateFrames(
+    masterNode,
+    rows,
+    mappings,
+    {},
+    autoColorEnabled,
+    autoColorTargetIds,
+    generationContext,
+  );
 }
 
-function makeGenerationContext(msg: PluginMessage, mappings: ColumnMapping[], ratioName?: string): GenerationContext {
+function makeGenerationContext(
+  msg: PluginMessage,
+  mappings: ColumnMapping[],
+  ratioName?: string,
+): GenerationContext {
   return {
     campaignName: msg.campaignName || "Campaign_A",
     variantSetName: msg.variantSetName || "Variant_Set_1",
@@ -814,7 +936,9 @@ function makeGenerationContext(msg: PluginMessage, mappings: ColumnMapping[], ra
 function variantName(campaignName: string, index: number, ratioName?: string) {
   const numberText = index + 1 < 10 ? `0${index + 1}` : String(index + 1);
   const variant = `Variant_${numberText}`;
-  return ratioName ? `${campaignName} / ${ratioName} / ${variant}` : `${campaignName} / ${variant}`;
+  return ratioName
+    ? `${campaignName} / ${ratioName} / ${variant}`
+    : `${campaignName} / ${variant}`;
 }
 
 function generatedBounds(nodes: SceneNode[]) {
@@ -825,7 +949,10 @@ function generatedBounds(nodes: SceneNode[]) {
   return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY };
 }
 
-function createGenerationSection(nodes: SceneNode[], context: GenerationContext) {
+function createGenerationSection(
+  nodes: SceneNode[],
+  context: GenerationContext,
+) {
   if (nodes.length === 0) {
     return null;
   }
@@ -835,14 +962,20 @@ function createGenerationSection(nodes: SceneNode[], context: GenerationContext)
   section.name = `${context.campaignName} / ${context.variantSetName}`;
   section.x = bounds.minX - 80;
   section.y = bounds.minY - 80;
-  section.resizeWithoutConstraints(Math.max(1, bounds.width + 160), Math.max(1, bounds.height + 160));
+  section.resizeWithoutConstraints(
+    Math.max(1, bounds.width + 160),
+    Math.max(1, bounds.height + 160),
+  );
   section.setPluginData("mitosis:generationId", context.generationId);
   section.setPluginData("mitosis:campaignName", context.campaignName);
   section.setPluginData("mitosis:variantSetName", context.variantSetName);
   return section;
 }
 
-function annotateGeneratedNodes(nodes: SceneNode[], context: GenerationContext) {
+function annotateGeneratedNodes(
+  nodes: SceneNode[],
+  context: GenerationContext,
+) {
   nodes.forEach((node, index) => {
     node.name = variantName(context.campaignName, index, context.ratioName);
     node.setPluginData("mitosis:generationId", context.generationId);
@@ -850,7 +983,10 @@ function annotateGeneratedNodes(nodes: SceneNode[], context: GenerationContext) 
     node.setPluginData("mitosis:variantSetName", context.variantSetName);
     node.setPluginData("mitosis:ratioName", context.ratioName || "");
     node.setPluginData("mitosis:sourceRow", String(index + 1));
-    node.setPluginData("mitosis:mappingConfig", JSON.stringify(context.mappingConfig));
+    node.setPluginData(
+      "mitosis:mappingConfig",
+      JSON.stringify(context.mappingConfig),
+    );
   });
 
   createGenerationSection(nodes, context);
@@ -860,7 +996,10 @@ function localImageUrlForKey(key: string) {
   return `https://local.mitosis.in/${encodeURIComponent(key.replace(/^local::/, ""))}`;
 }
 
-function normalizeLocalImageRows(rows: string[][], imageHashMap: Record<string, string>) {
+function normalizeLocalImageRows(
+  rows: string[][],
+  imageHashMap: Record<string, string>,
+) {
   const normalizedRows = rows.map((row) => [...row]);
   const normalizedImageHashMap: Record<string, string> = { ...imageHashMap };
 
@@ -898,7 +1037,12 @@ function resizeSceneNode(node: SceneNode, width: number, height: number) {
   }
 }
 
-function resizeFrameToRatio(frame: TemplateNode, targetW: number, targetH: number, scaleMode: ScaleMode): void {
+function resizeFrameToRatio(
+  frame: TemplateNode,
+  targetW: number,
+  targetH: number,
+  scaleMode: ScaleMode,
+): void {
   const originalW = frame.width;
   const originalH = frame.height;
   const scaleX = targetW / originalW;
@@ -941,7 +1085,10 @@ function resizeFrameToRatio(frame: TemplateNode, targetW: number, targetH: numbe
     ) {
       nextX = snapshot.x * scaleX;
       nextW = snapshot.width * scaleX;
-    } else if (snapshot.horizontal === "RIGHT" || snapshot.horizontal === "MAX") {
+    } else if (
+      snapshot.horizontal === "RIGHT" ||
+      snapshot.horizontal === "MAX"
+    ) {
       nextX = targetW - snapshot.right - snapshot.width;
     } else if (snapshot.horizontal === "CENTER") {
       nextX = targetW / 2 - snapshot.width / 2;
@@ -993,8 +1140,13 @@ async function generateFramesForRatio(
   const generatedNodes: SceneNode[] = [];
   const warnings: string[] = [];
   const idColumnIndex = rows[0].findIndex(isIdHeader);
-  const activeMappings = mappings.filter((mapping) => mapping.kind !== "SKIP" && mapping.tag && mapping.targetIds.length > 0);
-  const colorMappings = activeMappings.filter((mapping) => mapping.kind === "COLOR");
+  const activeMappings = mappings.filter(
+    (mapping) =>
+      mapping.kind !== "SKIP" && mapping.tag && mapping.targetIds.length > 0,
+  );
+  const colorMappings = activeMappings.filter(
+    (mapping) => mapping.kind === "COLOR",
+  );
   let generatedIndex = 0;
 
   for (let rowIndex = 1; rowIndex < rows.length; rowIndex++) {
@@ -1005,7 +1157,10 @@ async function generateFramesForRatio(
 
     const duplicate = templateNode.clone();
     const fallbackId = `Variation ${rowIndex}`;
-    const variationId = ((idColumnIndex >= 0 ? row[idColumnIndex] : row[0]) || fallbackId).trim() || fallbackId;
+    const variationId =
+      (
+        (idColumnIndex >= 0 ? row[idColumnIndex] : row[0]) || fallbackId
+      ).trim() || fallbackId;
     const rowOffset = Math.floor(generatedIndex / gridColumns);
     const columnOffset = generatedIndex % gridColumns;
 
@@ -1015,16 +1170,26 @@ async function generateFramesForRatio(
 
     for (const mapping of activeMappings) {
       let value = (row[mapping.columnIndex] || "").trim();
-      const targetNodes = duplicate.findAll((node) => node.name.trim() === mapping.tag);
+      const targetNodes = duplicate.findAll(
+        (node) => node.name.trim() === mapping.tag,
+      );
 
       if (targetNodes.length === 0) {
-        warnings.push(`No mapped layers found for "${mapping.header}" in "${duplicate.name}".`);
+        warnings.push(
+          `No mapped layers found for "${mapping.header}" in "${duplicate.name}".`,
+        );
         continue;
       }
 
       if (autoColorEnabled && mapping.kind === "COLOR") {
-        const colorIndex = colorMappings.findIndex((colorMapping) => colorMapping.columnIndex === mapping.columnIndex);
-        value = rgbToHex(...rgbToTuple(autoColorFor(rowIndex - 1, colorIndex < 0 ? 0 : colorIndex)));
+        const colorIndex = colorMappings.findIndex(
+          (colorMapping) => colorMapping.columnIndex === mapping.columnIndex,
+        );
+        value = rgbToHex(
+          ...rgbToTuple(
+            autoColorFor(rowIndex - 1, colorIndex < 0 ? 0 : colorIndex),
+          ),
+        );
       }
 
       if (!value) {
@@ -1032,12 +1197,22 @@ async function generateFramesForRatio(
       }
 
       for (const targetNode of targetNodes) {
-        await applyMappedValue(targetNode, mapping, value, imageHashMap, warnings);
+        await applyMappedValue(
+          targetNode,
+          mapping,
+          value,
+          imageHashMap,
+          warnings,
+        );
       }
     }
 
     if (autoColorEnabled && autoColorTargetIds.length > 0) {
-      applySolidColorToTag(duplicate, "#AUTO_COLOR", autoColorFor(rowIndex - 1, colorMappings.length));
+      applySolidColorToTag(
+        duplicate,
+        "#AUTO_COLOR",
+        autoColorFor(rowIndex - 1, colorMappings.length),
+      );
     }
 
     generatedNodes.push(duplicate);
@@ -1071,7 +1246,9 @@ async function importMultiRatioData(
 
   const rows = parseCSV(csvContent);
   if (rows.length < 2) {
-    postGenerationError("CSV must have a header row and at least one data row.");
+    postGenerationError(
+      "CSV must have a header row and at least one data row.",
+    );
     return;
   }
 
@@ -1096,7 +1273,10 @@ async function importMultiRatioData(
     }
   }
 
-  const normalizedLocalImages = normalizeLocalImageRows(rows, imageHashMap || {});
+  const normalizedLocalImages = normalizeLocalImageRows(
+    rows,
+    imageHashMap || {},
+  );
   const resolvedRows = normalizedLocalImages.rows;
   const resolvedImageHashMap = normalizedLocalImages.imageHashMap;
 
@@ -1106,19 +1286,31 @@ async function importMultiRatioData(
     return;
   }
 
-  await renameTargets(masterNode, mappings, autoColorEnabled ? autoColorTargetIds : []);
+  await renameTargets(
+    masterNode,
+    mappings,
+    autoColorEnabled ? autoColorTargetIds : [],
+  );
 
   const allGeneratedNodes: SceneNode[] = [];
   const allWarnings: string[] = [];
   const normalizedGap = Math.max(0, gap);
-  const normalizedGridColumns = Math.min(Math.max(Math.round(gridColumns), 1), 6);
+  const normalizedGridColumns = Math.min(
+    Math.max(Math.round(gridColumns), 1),
+    6,
+  );
   const originX = masterNode.x + masterNode.width + normalizedGap;
   let originY = masterNode.y;
 
   for (const ratioTarget of ratioTargets) {
     const ratioTemplate = masterNode.clone();
     ratioTemplate.name = `${masterNode.name}_${ratioTarget.name}`;
-    resizeFrameToRatio(ratioTemplate, ratioTarget.width, ratioTarget.height, scaleMode);
+    resizeFrameToRatio(
+      ratioTemplate,
+      ratioTarget.width,
+      ratioTarget.height,
+      scaleMode,
+    );
 
     const { generatedNodes, warnings } = await generateFramesForRatio(
       ratioTemplate,
@@ -1146,7 +1338,8 @@ async function importMultiRatioData(
     figma.viewport.scrollAndZoomIntoView(allGeneratedNodes);
   }
 
-  const warningSummary = allWarnings.length > 0 ? ` (${allWarnings.length} warnings)` : "";
+  const warningSummary =
+    allWarnings.length > 0 ? ` (${allWarnings.length} warnings)` : "";
   figma.notify(
     `Generated ${allGeneratedNodes.length} frame${allGeneratedNodes.length === 1 ? "" : "s"} across ${ratioTargets.length} ratio${ratioTargets.length === 1 ? "" : "s"}${warningSummary}.`,
   );
@@ -1170,14 +1363,20 @@ figma.ui.onmessage = (msg: PluginMessage) => {
   }
 
   if (msg.type === "refresh-document") {
-    figma.ui.postMessage({ type: "frames-loaded", frames: getTopLevelTemplates() });
+    figma.ui.postMessage({
+      type: "frames-loaded",
+      frames: getTopLevelTemplates(),
+    });
     postTemplateMetadata();
     return;
   }
 
   if (msg.type === "resize-ui") {
     const width = Math.min(Math.max(Math.round(msg.uiWidth || 900), 480), 1200);
-    const height = Math.min(Math.max(Math.round(msg.uiHeight || 740), 480), 960);
+    const height = Math.min(
+      Math.max(Math.round(msg.uiHeight || 740), 480),
+      960,
+    );
     figma.ui.resize(width, height);
     return;
   }
@@ -1193,9 +1392,20 @@ figma.ui.onmessage = (msg: PluginMessage) => {
       const headers = ["ID", ...hashNodes.map((child) => child.name)];
       const values = [
         node.name,
-        ...hashNodes.map((child) => (child.type === "TEXT" ? child.characters : firstSolidFillHex(child) || "")),
+        ...hashNodes.map((child) =>
+          child.type === "TEXT"
+            ? child.characters
+            : firstSolidFillHex(child) || "",
+        ),
       ];
-      const existingHeaders = new Set(headers.map((header) => header.trim().replace(/^#(TEXT|IMAGE|COLOR)_/i, "").toUpperCase()));
+      const existingHeaders = new Set(
+        headers.map((header) =>
+          header
+            .trim()
+            .replace(/^#(TEXT|IMAGE|COLOR)_/i, "")
+            .toUpperCase(),
+        ),
+      );
 
       for (const column of STANDARD_COLOR_COLUMNS) {
         const normalizedHeader = column.header.trim().toUpperCase();
@@ -1241,7 +1451,12 @@ figma.ui.onmessage = (msg: PluginMessage) => {
     return;
   }
 
-  if (msg.type === "import-multi-ratio" && msg.csvContent && msg.mappings && msg.ratioTargets) {
+  if (
+    msg.type === "import-multi-ratio" &&
+    msg.csvContent &&
+    msg.mappings &&
+    msg.ratioTargets
+  ) {
     const imageHashMap: Record<string, string> = {};
 
     if (msg.imageBytesMap) {
@@ -1276,7 +1491,13 @@ figma.ui.onmessage = (msg: PluginMessage) => {
     return;
   }
 
-  if (msg.type === "images-fetched" && msg.imageBytesMap && msg.rows && msg.masterFrameId && msg.mappings) {
+  if (
+    msg.type === "images-fetched" &&
+    msg.imageBytesMap &&
+    msg.rows &&
+    msg.masterFrameId &&
+    msg.mappings
+  ) {
     const imageHashMap: Record<string, string> = {};
 
     for (const url in msg.imageBytesMap) {
@@ -1305,7 +1526,10 @@ figma.ui.onmessage = (msg: PluginMessage) => {
       return;
     }
 
-    const normalizedLocalImages = normalizeLocalImageRows(msg.rows || [], imageHashMap);
+    const normalizedLocalImages = normalizeLocalImageRows(
+      msg.rows || [],
+      imageHashMap,
+    );
 
     getTemplateNodeById(msg.masterFrameId)
       .then((masterNode) => {
