@@ -2,7 +2,7 @@
   "name": "mitosisin",
   "version": "1.0.0",
   "description": "Your Figma Plugin",
-  "main": "code.js",
+  "main": "plugin/code.js",
   "workspaces": [
     "web",
     "bridge"
@@ -16,10 +16,10 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "watch": "npm run build -- --watch",
-    "dev": "npm run build -- --watch & node launcher-server.js",
+    "dev": "npm run build -- --watch & node services/launcher-server.js",
     "dev:all": "npm run build -- --watch & npm --workspace @mitosis/web run dev & npm --workspace @mitosis/bridge run dev",
-    "launcher:start": "node launcher.js start",
-    "launcher:stop": "node launcher.js stop"
+    "launcher:start": "node services/launcher.js start",
+    "launcher:stop": "node services/launcher.js stop"
   },
   "author": "",
   "license": "",

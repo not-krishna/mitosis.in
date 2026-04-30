@@ -969,6 +969,17 @@ function createGenerationSection(
   section.setPluginData("mitosis:generationId", context.generationId);
   section.setPluginData("mitosis:campaignName", context.campaignName);
   section.setPluginData("mitosis:variantSetName", context.variantSetName);
+
+  // Send section to back by moving it to the beginning of parent's children
+  const parent = section.parent;
+  if (parent && "children" in parent && parent.children.length > 1) {
+    const children = parent.children as (SectionNode | SceneNode)[];
+    const index = children.indexOf(section);
+    if (index > 0) {
+      parent.insertChild(0, section);
+    }
+  }
+
   return section;
 }
 

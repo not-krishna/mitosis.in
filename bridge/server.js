@@ -1,31 +1,10 @@
 import http from "node:http";
 import { WebSocketServer } from "ws";
+import { getSession, send } from "./utils.js";
+import { handleMessage, handleClose } from "./handlers.js";
 
 const port = Number(process.env.PORT || 8787);
 const sessions = new Map();
-
-function getSession(sessionId) {
-  if (!sessions.has(sessionId)) {
-    sessions.set(sessionId, {
-      app: null,
-      plugin: null,
-      state: {},
-      events: [],
-      updatedAt: Date.now(),
-    });
-  }
-  return sessions.get(sessionId);
-}
-
-function send(socket, payload) {
-  if (socket && socket.readyState === socket.OPEN) {
-    socket.send(JSON.stringify(payload));
-  }
-}
-
-function peer(session, role) {
-  return role === "app" ? session.plugin : session.app;
-}
 
 const server = http.createServer((request, response) => {
   if (request.url === "/health") {
@@ -59,74 +38,12 @@ wss.on("connection", (socket) => {
       return;
     }
 
-    const session = getSession(sessionId);
-    session.updatedAt = Date.now();
-
-    if (packet.kind === "register") {
-      role = packet.role === "plugin" ? "plugin" : "app";
-      session[role] = socket;
-      send(socket, {
-        kind: "registered",
-        sessionId,
-        role,
-        state: session.state,
-        events: session.events.slice(-20),
-      });
-      send(peer(session, role), { kind: "peer-status", role, connected: true });
-      // Notify app when plugin connects or is already connected
-      if (role === "plugin" && session.app) {
-        send(session.app, { kind: "plugin-connected" });
-      }
-      // Notify app if plugin is already connected when app registers
-      if (role === "app" && session.plugin) {
-        send(session.app, { kind: "plugin-connected" });
-      }
-      return;
-    }
-
-    if (packet.kind === "state-update") {
-      session.state = { ...session.state, ...(packet.state || {}) };
-      send(peer(session, role), { kind: "state-update", state: session.state });
-      return;
-    }
-
-    if (packet.kind === "plugin-event") {
-      session.events.push(packet.event);
-      session.events = session.events.slice(-100);
-      send(peer(session, role), { kind: "plugin-event", event: packet.event });
-      return;
-    }
-
-    if (packet.kind === "app-command") {
-      send(peer(session, role), {
-        kind: "app-command",
-        command: packet.command,
-      });
-      return;
-    }
-
-    if (packet.kind === "ping") {
-      send(socket, { kind: "pong", role });
-    }
+    const newRole = handleMessage(packet, socket, sessionId, sessions);
+    if (newRole) role = newRole;
   });
 
   socket.on("close", () => {
-    if (!sessionId) return;
-    const session = sessions.get(sessionId);
-    if (!session) return;
-    const wasPlugin = session.plugin === socket;
-    if (session.app === socket) session.app = null;
-    if (session.plugin === socket) session.plugin = null;
-
-    // If plugin closes, notify app that plugin is disconnected and close app connection
-    if (wasPlugin) {
-      send(session.app, { kind: "plugin-closed" });
-      if (session.app) {
-        session.app.close();
-        session.app = null;
-      }
-    }
-    send(peer(session, role), { kind: "peer-status", role, connected: false });
+    handleClose(sessionId, socket, sessions, role);
   });
 });
 
