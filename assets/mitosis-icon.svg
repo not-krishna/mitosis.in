@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Mitosis icon">
+  <rect width="64" height="64" rx="16" fill="#1C1C1E"/>
+  <path d="M18 32c0-8 5.6-14 13-14 5.2 0 8.4 2.6 11 6.4C44.6 20.6 47.8 18 53 18c7.4 0 13 6 13 14s-5.6 14-13 14c-5.2 0-8.4-2.6-11-6.4C39.4 43.4 36.2 46 31 46c-7.4 0-13-6-13-14Z" transform="translate(-10 0)" fill="none" stroke="url(#mitosisGradient)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="22" cy="32" r="6" fill="#64D2FF"/>
+  <circle cx="42" cy="32" r="6" fill="#BF5AF2"/>
+  <path d="M28 32h8" stroke="#F5F5F7" stroke-width="3" stroke-linecap="round"/>
+  <defs>
+    <linearGradient id="mitosisGradient" x1="14" y1="18" x2="50" y2="46" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#64D2FF"/>
+      <stop offset="1" stop-color="#BF5AF2"/>
+    </linearGradient>
+  </defs>
+</svg>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>Mitosis.in</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23060606'/%3E%3Cpath d='M16 43V21h7l9 13 9-13h7v22h-7V31L34 43h-4l-7-12v12z' fill='%23ffffff'/%3E%3Ccircle cx='50' cy='16' r='6' fill='%236ee7b7'/%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCIgcm9sZT0iaW1nIiBhcmlhLWxhYmVsPSJNaXRvc2lzIGljb24iPgogIDxyZWN0IHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgcng9IjE2IiBmaWxsPSIjMUMxQzFFIi8+CiAgPHBhdGggZD0iTTE4IDMyYzAtOCA1LjYtMTQgMTMtMTQgNS4yIDAgOC40IDIuNiAxMSA2LjRDNDQuNiAyMC42IDQ3LjggMTggNTMgMThjNy40IDAgMTMgNiAxMyAxNHMtNS42IDE0LTEzIDE0Yy01LjIgMC04LjQtMi42LTExLTYuNEMzOS40IDQzLjQgMzYuMiA0NiAzMSA0NmMtNy40IDAtMTMtNi0xMy0xNFoiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0xMCAwKSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ1cmwoI21pdG9zaXNHcmFkaWVudCkiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+CiAgPGNpcmNsZSBjeD0iMjIiIGN5PSIzMiIgcj0iNiIgZmlsbD0iIzY0RDJGRiIvPgogIDxjaXJjbGUgY3g9IjQyIiBjeT0iMzIiIHI9IjYiIGZpbGw9IiNCRjVBRjIiLz4KICA8cGF0aCBkPSJNMjggMzJoOCIgc3Ryb2tlPSIjRjVGNUY3IiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgogIDxkZWZzPgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJtaXRvc2lzR3JhZGllbnQiIHgxPSIxNCIgeTE9IjE4IiB4Mj0iNTAiIHkyPSI0NiIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPgogICAgICA8c3RvcCBzdG9wLWNvbG9yPSIjNjREMkZGIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iI0JGNUFGMiIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICA8L2RlZnM+Cjwvc3ZnPgo=">
 <style>
   :root {
       --bg: #1c1c1e;
@@ -62,21 +62,14 @@
       display: grid;
       place-items: center;
       color: var(--fg);
-      font-size: 15px;
-      font-weight: 800;
-      position: relative;
       flex: 0 0 auto;
+      overflow: hidden;
   }
 
-  .brand-mark::after {
-      content: "";
-      position: absolute;
-      right: -3px;
-      top: -3px;
-      width: 9px;
-      height: 9px;
-      border-radius: 50%;
-      background: var(--success);
+  .brand-mark svg {
+      width: 100%;
+      height: 100%;
+      display: block;
   }
 
   .brand-copy {
@@ -468,7 +461,21 @@
 <body>
 <div class="app">
   <header class="app-header">
-      <div class="brand-mark">M</div>
+      <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 64 64" role="img">
+              <rect width="64" height="64" rx="16" fill="#1C1C1E"></rect>
+              <path d="M18 32c0-8 5.6-14 13-14 5.2 0 8.4 2.6 11 6.4C44.6 20.6 47.8 18 53 18c7.4 0 13 6 13 14s-5.6 14-13 14c-5.2 0-8.4-2.6-11-6.4C39.4 43.4 36.2 46 31 46c-7.4 0-13-6-13-14Z" transform="translate(-10 0)" fill="none" stroke="url(#brandGradient)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path>
+              <circle cx="22" cy="32" r="6" fill="#64D2FF"></circle>
+              <circle cx="42" cy="32" r="6" fill="#BF5AF2"></circle>
+              <path d="M28 32h8" stroke="#F5F5F7" stroke-width="3" stroke-linecap="round"></path>
+              <defs>
+                  <linearGradient id="brandGradient" x1="14" y1="18" x2="50" y2="46" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#64D2FF"></stop>
+                      <stop offset="1" stop-color="#BF5AF2"></stop>
+                  </linearGradient>
+              </defs>
+          </svg>
+      </div>
       <div class="brand-copy">
           <div class="brand-title">Mitosis.in</div>
           <div class="brand-subtitle">Bulk creative mapping and variation generation</div>
