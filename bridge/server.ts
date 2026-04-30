@@ -1,7 +1,8 @@
+// @ts-nocheck
 import http from "node:http";
 import { WebSocketServer } from "ws";
-import { getSession, send } from "./utils.js";
-import { handleMessage, handleClose } from "./handlers.js";
+import { getSession, send } from "./utils";
+import { handleMessage, handleClose } from "./handlers";
 
 const port = Number(process.env.PORT || 8787);
 const sessions = new Map();

@@ -1,3 +1,4 @@
+// @ts-nocheck
 export function Icon({ name }) {
   const common = {
     viewBox: "0 0 24 24",

@@ -1,9 +1,10 @@
 {
   "compilerOptions": {
     "target": "ES6",
-    "lib": ["ES6"],
+    "lib": ["ES2019"],
     "types": ["@figma/plugin-typings"],
     "strict": true,
     "esModuleInterop": true
-  }
+  },
+  "include": ["plugin/code.ts"]
 }

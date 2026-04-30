@@ -1,0 +1,60 @@
+@media (max-width: 1320px) {
+  .top-toolbar {
+    grid-template-columns: minmax(230px, 0.9fr) minmax(420px, 1.4fr) minmax(
+        220px,
+        0.8fr
+      );
+    gap: 10px;
+  }
+
+  .tool-copy span {
+    display: none;
+  }
+
+  .tool-tab {
+    min-height: 40px;
+    min-width: 94px;
+  }
+
+  .workspace-grid {
+    grid-template-columns: 300px minmax(360px, 1fr) 340px;
+  }
+}
+
+@media (max-width: 1040px) {
+  .app-shell {
+    grid-template-rows: auto minmax(0, 1fr) 226px;
+  }
+
+  .top-toolbar {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .brand-cluster,
+  .toolbar-actions {
+    justify-content: space-between;
+  }
+
+  .toolbar-tools {
+    justify-content: stretch;
+  }
+
+  .workspace-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .left-panel,
+  .right-panel {
+    display: none;
+  }
+
+  .bottom-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .bottom-panel {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+}

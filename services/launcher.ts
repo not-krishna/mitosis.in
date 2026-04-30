@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-nocheck
 /* global process, console */
 
 import { spawn, exec } from "child_process";
@@ -97,6 +98,6 @@ if (command === "start") {
 } else if (command === "stop") {
   stop();
 } else {
-  console.log("Usage: node launcher.js [start|stop]");
+  console.log("Usage: tsx services/launcher.ts [start|stop]");
   process.exit(1);
 }

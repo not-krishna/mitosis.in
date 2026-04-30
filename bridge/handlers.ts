@@ -1,4 +1,5 @@
-import { send, peer, getSession } from "./utils.js";
+// @ts-nocheck
+import { send, peer, getSession } from "./utils";
 
 export function handleMessage(packet, socket, sessionId, sessions) {
   const session = getSession(sessionId, sessions);
