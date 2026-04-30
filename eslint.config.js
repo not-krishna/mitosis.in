@@ -36,6 +36,6 @@ module.exports = tseslint.config(
     },
   },
   {
-    ignores: ['*.bak.*', 'code.js', 'dist', 'eslint.config.js'],
+    ignores: ['*.bak.*', 'code.js', 'dist', 'eslint.config.js', 'web/**', 'bridge/**'],
   },
 )

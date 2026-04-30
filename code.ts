@@ -4,6 +4,7 @@ type TemplateNode = FrameNode | ComponentNode;
 type MappingKind = "TEXT" | "IMAGE" | "COLOR" | "SKIP";
 type TargetKind = Exclude<MappingKind, "SKIP">;
 type ImageBytesMap = Record<string, Uint8Array | number[]>;
+type ScaleMode = "proportional" | "stretch" | "fit";
 
 const STANDARD_COLOR_COLUMNS = [
   { header: "PRIMARY_COLOR", value: "#111111" },
@@ -30,6 +31,12 @@ interface ColumnMapping {
   targetIds: string[];
 }
 
+interface RatioTarget {
+  name: string;
+  width: number;
+  height: number;
+}
+
 interface PluginMessage {
   type: string;
   frameId?: string;
@@ -42,9 +49,25 @@ interface PluginMessage {
   autoColorTargetIds?: string[];
   uiWidth?: number;
   uiHeight?: number;
+  ratioTargets?: RatioTarget[];
+  gap?: number;
+  gridColumns?: number;
+  scaleMode?: ScaleMode;
+  campaignName?: string;
+  variantSetName?: string;
+  generationId?: string;
+  url?: string;
 }
 
-figma.showUI(__html__, { width: 560, height: 720, title: "Mitosis.in" });
+interface GenerationContext {
+  campaignName: string;
+  variantSetName: string;
+  generationId: string;
+  mappingConfig: ColumnMapping[];
+  ratioName?: string;
+}
+
+figma.showUI(__html__, { width: 420, height: 560, title: "Mitosis.in Executor" });
 
 function isTemplateNode(node: BaseNode | null): node is TemplateNode {
   return !!node && (node.type === "FRAME" || node.type === "COMPONENT");
@@ -54,6 +77,19 @@ function getTopLevelTemplates() {
   return figma.currentPage.children
     .filter(isTemplateNode)
     .map((node) => ({ id: node.id, name: node.name, type: node.type }));
+}
+
+function postTemplateMetadata() {
+  const templates = figma.currentPage.children.filter(isTemplateNode).map((node) => ({
+    id: node.id,
+    name: node.name,
+    type: node.type,
+    width: node.width,
+    height: node.height,
+    layerOptions: scanLayerOptions(node),
+  }));
+
+  figma.ui.postMessage({ type: "template-metadata", templates });
 }
 
 function postGenerationError(message: string) {
@@ -191,6 +227,10 @@ const parseCSV = (text: string) => {
 setTimeout(() => {
   figma.ui.postMessage({ type: "frames-loaded", frames: getTopLevelTemplates() });
 }, 100);
+
+setTimeout(() => {
+  postTemplateMetadata();
+}, 140);
 
 const loadFonts = async (textNode: TextNode) => {
   if (textNode.fontName !== figma.mixed) {
@@ -598,6 +638,7 @@ async function generateFrames(
   imageHashMap: Record<string, string>,
   autoColorEnabled: boolean,
   autoColorTargetIds: string[],
+  generationContext?: GenerationContext,
 ) {
   await renameTargets(masterNode, mappings, autoColorEnabled ? autoColorTargetIds : []);
 
@@ -656,6 +697,10 @@ async function generateFrames(
     generatedIndex++;
   }
 
+  if (generationContext && generatedNodes.length > 0) {
+    annotateGeneratedNodes(generatedNodes, generationContext);
+  }
+
   if (generatedNodes.length > 0) {
     figma.currentPage.selection = generatedNodes;
     figma.viewport.scrollAndZoomIntoView(generatedNodes);
@@ -668,7 +713,12 @@ async function generateFrames(
     console.warn(warnings.join("\n"));
   }
 
-  figma.closePlugin();
+  figma.ui.postMessage({
+    type: "generation-complete",
+    generationId: generationContext?.generationId || "",
+    frameIds: generatedNodes.map((node) => node.id),
+    frameNames: generatedNodes.map((node) => node.name),
+  });
 }
 
 function rgbToTuple(rgb: RGB): [number, number, number] {
@@ -711,6 +761,7 @@ async function importMappedData(
   mappings: ColumnMapping[],
   autoColorEnabled: boolean,
   autoColorTargetIds: string[],
+  generationContext?: GenerationContext,
 ) {
   if (!masterFrameId) {
     postGenerationError("Select a master frame before generating.");
@@ -733,6 +784,10 @@ async function importMappedData(
       mappings,
       autoColorEnabled,
       autoColorTargetIds,
+      csvContent,
+      campaignName: generationContext?.campaignName,
+      variantSetName: generationContext?.variantSetName,
+      generationId: generationContext?.generationId,
     });
     return;
   }
@@ -743,13 +798,386 @@ async function importMappedData(
     return;
   }
 
-  await generateFrames(masterNode, rows, mappings, {}, autoColorEnabled, autoColorTargetIds);
+  await generateFrames(masterNode, rows, mappings, {}, autoColorEnabled, autoColorTargetIds, generationContext);
+}
+
+function makeGenerationContext(msg: PluginMessage, mappings: ColumnMapping[], ratioName?: string): GenerationContext {
+  return {
+    campaignName: msg.campaignName || "Campaign_A",
+    variantSetName: msg.variantSetName || "Variant_Set_1",
+    generationId: msg.generationId || `gen_${Date.now()}`,
+    mappingConfig: mappings,
+    ratioName,
+  };
+}
+
+function variantName(campaignName: string, index: number, ratioName?: string) {
+  const numberText = index + 1 < 10 ? `0${index + 1}` : String(index + 1);
+  const variant = `Variant_${numberText}`;
+  return ratioName ? `${campaignName} / ${ratioName} / ${variant}` : `${campaignName} / ${variant}`;
+}
+
+function generatedBounds(nodes: SceneNode[]) {
+  const minX = Math.min(...nodes.map((node) => node.x));
+  const minY = Math.min(...nodes.map((node) => node.y));
+  const maxX = Math.max(...nodes.map((node) => node.x + node.width));
+  const maxY = Math.max(...nodes.map((node) => node.y + node.height));
+  return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY };
+}
+
+function createGenerationSection(nodes: SceneNode[], context: GenerationContext) {
+  if (nodes.length === 0) {
+    return null;
+  }
+
+  const bounds = generatedBounds(nodes);
+  const section = figma.createSection();
+  section.name = `${context.campaignName} / ${context.variantSetName}`;
+  section.x = bounds.minX - 80;
+  section.y = bounds.minY - 80;
+  section.resizeWithoutConstraints(Math.max(1, bounds.width + 160), Math.max(1, bounds.height + 160));
+  section.setPluginData("mitosis:generationId", context.generationId);
+  section.setPluginData("mitosis:campaignName", context.campaignName);
+  section.setPluginData("mitosis:variantSetName", context.variantSetName);
+  return section;
+}
+
+function annotateGeneratedNodes(nodes: SceneNode[], context: GenerationContext) {
+  nodes.forEach((node, index) => {
+    node.name = variantName(context.campaignName, index, context.ratioName);
+    node.setPluginData("mitosis:generationId", context.generationId);
+    node.setPluginData("mitosis:campaignName", context.campaignName);
+    node.setPluginData("mitosis:variantSetName", context.variantSetName);
+    node.setPluginData("mitosis:ratioName", context.ratioName || "");
+    node.setPluginData("mitosis:sourceRow", String(index + 1));
+    node.setPluginData("mitosis:mappingConfig", JSON.stringify(context.mappingConfig));
+  });
+
+  createGenerationSection(nodes, context);
+}
+
+function localImageUrlForKey(key: string) {
+  return `https://local.mitosis.in/${encodeURIComponent(key.replace(/^local::/, ""))}`;
+}
+
+function normalizeLocalImageRows(rows: string[][], imageHashMap: Record<string, string>) {
+  const normalizedRows = rows.map((row) => [...row]);
+  const normalizedImageHashMap: Record<string, string> = { ...imageHashMap };
+
+  for (const key in imageHashMap) {
+    if (!key.startsWith("local::")) {
+      continue;
+    }
+
+    const urlKey = localImageUrlForKey(key);
+    normalizedImageHashMap[urlKey] = imageHashMap[key];
+
+    for (const row of normalizedRows) {
+      for (let columnIndex = 0; columnIndex < row.length; columnIndex++) {
+        if (row[columnIndex] === key) {
+          row[columnIndex] = urlKey;
+        }
+      }
+    }
+  }
+
+  return { rows: normalizedRows, imageHashMap: normalizedImageHashMap };
+}
+
+function getHorizontalConstraint(node: SceneNode) {
+  return "constraints" in node ? node.constraints.horizontal : "LEFT";
+}
+
+function getVerticalConstraint(node: SceneNode) {
+  return "constraints" in node ? node.constraints.vertical : "TOP";
+}
+
+function resizeSceneNode(node: SceneNode, width: number, height: number) {
+  if ("resize" in node) {
+    node.resize(Math.max(0.01, width), Math.max(0.01, height));
+  }
+}
+
+function resizeFrameToRatio(frame: TemplateNode, targetW: number, targetH: number, scaleMode: ScaleMode): void {
+  const originalW = frame.width;
+  const originalH = frame.height;
+  const scaleX = targetW / originalW;
+  const scaleY = targetH / originalH;
+  const children = [...frame.children];
+  const childSnapshots = children.map((node) => ({
+    node,
+    x: node.x,
+    y: node.y,
+    width: node.width,
+    height: node.height,
+    right: originalW - (node.x + node.width),
+    bottom: originalH - (node.y + node.height),
+    horizontal: getHorizontalConstraint(node),
+    vertical: getVerticalConstraint(node),
+  }));
+
+  frame.resize(targetW, targetH);
+
+  if (frame.layoutMode !== "NONE") {
+    return;
+  }
+
+  for (const snapshot of childSnapshots) {
+    const node = snapshot.node;
+    if ("layoutPositioning" in node && node.layoutPositioning !== "ABSOLUTE") {
+      continue;
+    }
+
+    let nextX = snapshot.x;
+    let nextY = snapshot.y;
+    let nextW = snapshot.width;
+    let nextH = snapshot.height;
+
+    if (
+      scaleMode === "stretch" ||
+      snapshot.horizontal === "SCALE" ||
+      snapshot.horizontal === "STRETCH" ||
+      snapshot.horizontal === "LEFT_RIGHT"
+    ) {
+      nextX = snapshot.x * scaleX;
+      nextW = snapshot.width * scaleX;
+    } else if (snapshot.horizontal === "RIGHT" || snapshot.horizontal === "MAX") {
+      nextX = targetW - snapshot.right - snapshot.width;
+    } else if (snapshot.horizontal === "CENTER") {
+      nextX = targetW / 2 - snapshot.width / 2;
+    }
+
+    if (
+      scaleMode === "stretch" ||
+      snapshot.vertical === "SCALE" ||
+      snapshot.vertical === "STRETCH" ||
+      snapshot.vertical === "TOP_BOTTOM"
+    ) {
+      nextY = snapshot.y * scaleY;
+      nextH = snapshot.height * scaleY;
+    } else if (snapshot.vertical === "BOTTOM" || snapshot.vertical === "MAX") {
+      nextY = targetH - snapshot.bottom - snapshot.height;
+    } else if (snapshot.vertical === "CENTER") {
+      nextY = targetH / 2 - snapshot.height / 2;
+    }
+
+    node.x = nextX;
+    node.y = nextY;
+    resizeSceneNode(node, nextW, nextH);
+
+    if (
+      node.type === "TEXT" &&
+      scaleMode === "proportional" &&
+      node.textAutoResize === "NONE" &&
+      nextW < snapshot.width
+    ) {
+      node.textAutoResize = "HEIGHT";
+    }
+  }
+}
+
+async function generateFramesForRatio(
+  templateNode: TemplateNode,
+  rows: string[][],
+  mappings: ColumnMapping[],
+  imageHashMap: Record<string, string>,
+  autoColorEnabled: boolean,
+  autoColorTargetIds: string[],
+  originX: number,
+  originY: number,
+  gap: number,
+  gridColumns: number,
+  ratioName: string,
+  generationContext?: GenerationContext,
+) {
+  const generatedNodes: SceneNode[] = [];
+  const warnings: string[] = [];
+  const idColumnIndex = rows[0].findIndex(isIdHeader);
+  const activeMappings = mappings.filter((mapping) => mapping.kind !== "SKIP" && mapping.tag && mapping.targetIds.length > 0);
+  const colorMappings = activeMappings.filter((mapping) => mapping.kind === "COLOR");
+  let generatedIndex = 0;
+
+  for (let rowIndex = 1; rowIndex < rows.length; rowIndex++) {
+    const row = rows[rowIndex];
+    if (!row || row.every((cell) => !cell.trim())) {
+      continue;
+    }
+
+    const duplicate = templateNode.clone();
+    const fallbackId = `Variation ${rowIndex}`;
+    const variationId = ((idColumnIndex >= 0 ? row[idColumnIndex] : row[0]) || fallbackId).trim() || fallbackId;
+    const rowOffset = Math.floor(generatedIndex / gridColumns);
+    const columnOffset = generatedIndex % gridColumns;
+
+    duplicate.x = originX + columnOffset * (templateNode.width + gap);
+    duplicate.y = originY + rowOffset * (templateNode.height + gap);
+    duplicate.name = `${templateNode.name}_${ratioName}_${variationId}`;
+
+    for (const mapping of activeMappings) {
+      let value = (row[mapping.columnIndex] || "").trim();
+      const targetNodes = duplicate.findAll((node) => node.name.trim() === mapping.tag);
+
+      if (targetNodes.length === 0) {
+        warnings.push(`No mapped layers found for "${mapping.header}" in "${duplicate.name}".`);
+        continue;
+      }
+
+      if (autoColorEnabled && mapping.kind === "COLOR") {
+        const colorIndex = colorMappings.findIndex((colorMapping) => colorMapping.columnIndex === mapping.columnIndex);
+        value = rgbToHex(...rgbToTuple(autoColorFor(rowIndex - 1, colorIndex < 0 ? 0 : colorIndex)));
+      }
+
+      if (!value) {
+        continue;
+      }
+
+      for (const targetNode of targetNodes) {
+        await applyMappedValue(targetNode, mapping, value, imageHashMap, warnings);
+      }
+    }
+
+    if (autoColorEnabled && autoColorTargetIds.length > 0) {
+      applySolidColorToTag(duplicate, "#AUTO_COLOR", autoColorFor(rowIndex - 1, colorMappings.length));
+    }
+
+    generatedNodes.push(duplicate);
+    generatedIndex++;
+  }
+
+  if (generationContext && generatedNodes.length > 0) {
+    annotateGeneratedNodes(generatedNodes, { ...generationContext, ratioName });
+  }
+
+  return { generatedNodes, warnings };
+}
+
+async function importMultiRatioData(
+  masterFrameId: string | undefined,
+  csvContent: string,
+  mappings: ColumnMapping[],
+  ratioTargets: RatioTarget[],
+  autoColorEnabled: boolean,
+  autoColorTargetIds: string[],
+  gap = 80,
+  gridColumns = 3,
+  scaleMode: ScaleMode = "proportional",
+  imageHashMap?: Record<string, string>,
+  generationContext?: GenerationContext,
+) {
+  if (!masterFrameId) {
+    postGenerationError("Select a master frame before generating.");
+    return;
+  }
+
+  const rows = parseCSV(csvContent);
+  if (rows.length < 2) {
+    postGenerationError("CSV must have a header row and at least one data row.");
+    return;
+  }
+
+  if (!imageHashMap) {
+    const urlsToFetch = collectImageUrls(rows, mappings);
+    if (urlsToFetch.length > 0) {
+      figma.ui.postMessage({
+        type: "fetch-images",
+        urls: urlsToFetch,
+        rows,
+        masterFrameId,
+        csvContent,
+        mappings,
+        ratioTargets,
+        autoColorEnabled,
+        autoColorTargetIds,
+        gap,
+        gridColumns,
+        scaleMode,
+      });
+      return;
+    }
+  }
+
+  const normalizedLocalImages = normalizeLocalImageRows(rows, imageHashMap || {});
+  const resolvedRows = normalizedLocalImages.rows;
+  const resolvedImageHashMap = normalizedLocalImages.imageHashMap;
+
+  const masterNode = await getTemplateNodeById(masterFrameId);
+  if (!masterNode) {
+    postGenerationError("Selected master frame was not found.");
+    return;
+  }
+
+  await renameTargets(masterNode, mappings, autoColorEnabled ? autoColorTargetIds : []);
+
+  const allGeneratedNodes: SceneNode[] = [];
+  const allWarnings: string[] = [];
+  const normalizedGap = Math.max(0, gap);
+  const normalizedGridColumns = Math.min(Math.max(Math.round(gridColumns), 1), 6);
+  const originX = masterNode.x + masterNode.width + normalizedGap;
+  let originY = masterNode.y;
+
+  for (const ratioTarget of ratioTargets) {
+    const ratioTemplate = masterNode.clone();
+    ratioTemplate.name = `${masterNode.name}_${ratioTarget.name}`;
+    resizeFrameToRatio(ratioTemplate, ratioTarget.width, ratioTarget.height, scaleMode);
+
+    const { generatedNodes, warnings } = await generateFramesForRatio(
+      ratioTemplate,
+      resolvedRows,
+      mappings,
+      resolvedImageHashMap,
+      autoColorEnabled,
+      autoColorTargetIds,
+      originX,
+      originY,
+      normalizedGap,
+      normalizedGridColumns,
+      ratioTarget.name,
+      generationContext,
+    );
+
+    allGeneratedNodes.push(...generatedNodes);
+    allWarnings.push(...warnings);
+    ratioTemplate.remove();
+    originY += ratioTarget.height + normalizedGap * 2;
+  }
+
+  if (allGeneratedNodes.length > 0) {
+    figma.currentPage.selection = allGeneratedNodes;
+    figma.viewport.scrollAndZoomIntoView(allGeneratedNodes);
+  }
+
+  const warningSummary = allWarnings.length > 0 ? ` (${allWarnings.length} warnings)` : "";
+  figma.notify(
+    `Generated ${allGeneratedNodes.length} frame${allGeneratedNodes.length === 1 ? "" : "s"} across ${ratioTargets.length} ratio${ratioTargets.length === 1 ? "" : "s"}${warningSummary}.`,
+  );
+
+  if (allWarnings.length > 0) {
+    console.warn(allWarnings.join("\n"));
+  }
+
+  figma.ui.postMessage({
+    type: "generation-complete",
+    generationId: generationContext?.generationId || "",
+    frameIds: allGeneratedNodes.map((node) => node.id),
+    frameNames: allGeneratedNodes.map((node) => node.name),
+  });
 }
 
 figma.ui.onmessage = (msg: PluginMessage) => {
+  if (msg.type === "open-hosted-app" && msg.url) {
+    figma.openExternal(msg.url);
+    return;
+  }
+
+  if (msg.type === "refresh-document") {
+    figma.ui.postMessage({ type: "frames-loaded", frames: getTopLevelTemplates() });
+    postTemplateMetadata();
+    return;
+  }
+
   if (msg.type === "resize-ui") {
-    const width = Math.min(Math.max(Math.round(msg.uiWidth || 560), 420), 980);
-    const height = Math.min(Math.max(Math.round(msg.uiHeight || 720), 420), 900);
+    const width = Math.min(Math.max(Math.round(msg.uiWidth || 900), 480), 1200);
+    const height = Math.min(Math.max(Math.round(msg.uiHeight || 740), 480), 960);
     figma.ui.resize(width, height);
     return;
   }
@@ -805,10 +1233,46 @@ figma.ui.onmessage = (msg: PluginMessage) => {
       msg.mappings,
       Boolean(msg.autoColorEnabled),
       msg.autoColorTargetIds || [],
+      makeGenerationContext(msg, msg.mappings),
     ).catch((error) => {
       console.error(error);
       postGenerationError("Error generating frames. See console.");
     });
+    return;
+  }
+
+  if (msg.type === "import-multi-ratio" && msg.csvContent && msg.mappings && msg.ratioTargets) {
+    const imageHashMap: Record<string, string> = {};
+
+    if (msg.imageBytesMap) {
+      for (const url in msg.imageBytesMap) {
+        const bytes = msg.imageBytesMap[url];
+        const figmaImage = figma.createImage(new Uint8Array(bytes));
+        imageHashMap[url] = figmaImage.hash;
+      }
+    }
+
+    importMultiRatioData(
+      msg.masterFrameId,
+      msg.csvContent,
+      msg.mappings,
+      msg.ratioTargets,
+      Boolean(msg.autoColorEnabled),
+      msg.autoColorTargetIds || [],
+      msg.gap,
+      msg.gridColumns,
+      msg.scaleMode || "proportional",
+      msg.imageBytesMap ? imageHashMap : undefined,
+      makeGenerationContext(msg, msg.mappings),
+    ).catch((error) => {
+      console.error(error);
+      postGenerationError("Error generating ratio frames. See console.");
+    });
+    return;
+  }
+
+  if (msg.type === "export-ratio") {
+    figma.notify("Ratio export is coming soon.");
     return;
   }
 
@@ -821,6 +1285,28 @@ figma.ui.onmessage = (msg: PluginMessage) => {
       imageHashMap[url] = figmaImage.hash;
     }
 
+    if (msg.ratioTargets && msg.csvContent) {
+      importMultiRatioData(
+        msg.masterFrameId,
+        msg.csvContent,
+        msg.mappings,
+        msg.ratioTargets,
+        Boolean(msg.autoColorEnabled),
+        msg.autoColorTargetIds || [],
+        msg.gap,
+        msg.gridColumns,
+        msg.scaleMode || "proportional",
+        imageHashMap,
+        makeGenerationContext(msg, msg.mappings),
+      ).catch((error) => {
+        console.error(error);
+        postGenerationError("Error generating ratio frames. See console.");
+      });
+      return;
+    }
+
+    const normalizedLocalImages = normalizeLocalImageRows(msg.rows || [], imageHashMap);
+
     getTemplateNodeById(msg.masterFrameId)
       .then((masterNode) => {
         if (!masterNode) {
@@ -830,11 +1316,12 @@ figma.ui.onmessage = (msg: PluginMessage) => {
 
         return generateFrames(
           masterNode,
-          msg.rows || [],
+          normalizedLocalImages.rows,
           msg.mappings || [],
-          imageHashMap,
+          normalizedLocalImages.imageHashMap,
           Boolean(msg.autoColorEnabled),
           msg.autoColorTargetIds || [],
+          makeGenerationContext(msg, msg.mappings || []),
         );
       })
       .catch((error) => {

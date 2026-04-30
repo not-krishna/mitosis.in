@@ -3,8 +3,16 @@
   "version": "1.0.0",
   "description": "Your Figma Plugin",
   "main": "code.js",
+  "workspaces": [
+    "web",
+    "bridge"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "plugin:build": "tsc -p tsconfig.json",
+    "web:dev": "npm --workspace @mitosis/web run dev",
+    "web:build": "npm --workspace @mitosis/web run build",
+    "bridge:dev": "npm --workspace @mitosis/bridge run dev",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "watch": "npm run build -- --watch",

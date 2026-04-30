@@ -1,4 +1,14 @@
-Below are the steps to get your plugin running. You can also find instructions at:
+## Mitosis.in
+
+Mitosis.in now uses a hybrid architecture:
+
+- Figma plugin: lightweight executor and document bridge.
+- `web/`: fullscreen React + React Flow workflow app.
+- `bridge/`: WebSocket relay for plugin/app sessions.
+
+See [docs/HOSTED_ARCHITECTURE.md](docs/HOSTED_ARCHITECTURE.md) for local run and DigitalOcean deployment notes.
+
+Below are the original steps to get your plugin running. You can also find instructions at:
 
   https://www.figma.com/plugin-docs/plugin-quickstart-guide/
 
