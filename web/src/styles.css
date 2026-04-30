@@ -941,7 +941,6 @@ svg {
 .flow-node header span,
 .compact-sheet,
 .mapping-row em,
-.output-node p,
 .frame-node-body {
   color: var(--muted);
 }
@@ -962,7 +961,22 @@ svg {
   width: 252px;
 }
 
-.output-node,
+.new-output-node {
+  width: 286px;
+
+  p {
+    margin: 10px;
+    line-height: 1.4;
+    color: var(--muted);
+  }
+  button {
+    width: calc(100% - 20px);
+    margin: 0 10px 10px;
+    border: 1px solid var(--border);
+    background: rgba(20, 24, 35, 0.78);
+  }
+}
+
 .frame-node {
   width: 286px;
 }
@@ -1091,17 +1105,9 @@ svg {
   color: #ffda98;
 }
 
-.output-node p,
 .frame-node-body {
   margin: 10px;
   line-height: 1.4;
-}
-
-.output-node button {
-  width: calc(100% - 20px);
-  margin: 0 10px 10px;
-  border: 1px solid var(--border);
-  background: rgba(20, 24, 35, 0.78);
 }
 
 .panel-tabs {

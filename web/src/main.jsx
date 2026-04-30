@@ -243,6 +243,22 @@ function GenerationNode({ data }) {
   );
 }
 
+function NewOutputNode({ data }) {
+  return (
+    <section className="flow-node new-output-node">
+      <Handle type="target" position={Position.Left} />
+      <header>
+        <strong>Output</strong>
+        <span>disconnected</span>
+      </header>
+      <p>
+        Generated frames will appear in the bottom dock. Connect a frame node to
+        display them here.
+      </p>
+    </section>
+  );
+}
+
 function ScaleNode({ data }) {
   const activeRatios = data.activeRatios || [];
 
@@ -401,6 +417,7 @@ const nodeTypes = {
   generation: GenerationNode,
   scale: ScaleNode,
   output: OutputNode,
+  newOutput: NewOutputNode,
   frame: FrameNode,
 };
 

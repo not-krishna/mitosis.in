@@ -36,7 +36,13 @@ export const toolCatalog = [
     icon: "generate",
   },
   { type: "scale", label: "Scale", detail: "Set ratios", icon: "scale" },
-  { type: "output", label: "Output", detail: "Frame dock", icon: "output" },
+  {
+    type: "newOutput",
+    label: "Output",
+    detail: "Frame dock",
+    icon: "output",
+  },
+
   { type: "frame", label: "Add Frame", detail: "Place asset", icon: "frame" },
 ];
 
