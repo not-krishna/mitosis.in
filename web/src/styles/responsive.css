@@ -1,9 +1,6 @@
 @media (max-width: 1320px) {
   .top-toolbar {
-    grid-template-columns: minmax(230px, 0.9fr) minmax(420px, 1.4fr) minmax(
-        220px,
-        0.8fr
-      );
+    grid-template-columns: minmax(230px, 1fr) auto;
     gap: 10px;
   }
 
@@ -17,13 +14,20 @@
   }
 
   .workspace-grid {
-    grid-template-columns: 300px minmax(360px, 1fr) 340px;
+    --left-panel-width: 300px;
+    --nodes-panel-width: 0px;
+    --right-panel-width: 340px;
+    grid-template-columns:
+      var(--left-panel-width)
+      var(--nodes-panel-width)
+      var(--right-panel-width)
+      minmax(360px, 1fr);
   }
 }
 
 @media (max-width: 1040px) {
   .app-shell {
-    grid-template-rows: auto minmax(0, 1fr) 226px;
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
   .top-toolbar {
@@ -45,16 +49,9 @@
   }
 
   .left-panel,
+  .nodes-panel,
   .right-panel {
     display: none;
   }
 
-  .bottom-head {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .bottom-panel {
-    grid-template-rows: auto minmax(0, 1fr);
-  }
 }

@@ -51,6 +51,7 @@ export function CanvasSurface({
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
       onConnect={onConnect}
+      deleteKeyCode={["Delete", "Backspace"]}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       fitView

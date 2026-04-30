@@ -68,6 +68,9 @@ function App() {
   const [columnQuery, setColumnQuery] = useState("");
   const [columnFilter, setColumnFilter] = useState("all");
   const [rightPanelTab, setRightPanelTab] = useState("mapping");
+  const [isLeftPanelVisible, setIsLeftPanelVisible] = useState(true);
+  const [isRightPanelVisible, setIsRightPanelVisible] = useState(false);
+  const [isNodesPanelVisible, setIsNodesPanelVisible] = useState(false);
   const [bottomQuery, setBottomQuery] = useState("");
   const [selectedDockFrameIds, setSelectedDockFrameIds] = useState([]);
   const [notice, setNotice] = useState(
@@ -809,6 +812,18 @@ function App() {
     [setEdges],
   );
 
+  const toggleRailPanel = useCallback(
+    (panel) => {
+      const nextLeft = panel === "left" ? !isLeftPanelVisible : false;
+      const nextRight = panel === "right" ? !isRightPanelVisible : false;
+      const nextNodes = panel === "nodes" ? !isNodesPanelVisible : false;
+      setIsLeftPanelVisible(nextLeft);
+      setIsRightPanelVisible(nextRight);
+      setIsNodesPanelVisible(nextNodes);
+    },
+    [isLeftPanelVisible, isRightPanelVisible, isNodesPanelVisible],
+  );
+
   const connectedNodeIds = useMemo(() => {
     const ids = new Set();
     edges.forEach((edge) => {
@@ -919,7 +934,43 @@ function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className="app-shell with-icon-rail">
+      <nav className="left-icon-rail" aria-label="Panel rail">
+        <button
+          type="button"
+          className={
+            isLeftPanelVisible ? "rail-icon-button active" : "rail-icon-button"
+          }
+          onClick={() => toggleRailPanel("left")}
+          aria-label="Toggle data panel"
+          title="Toggle data panel"
+        >
+          <Icon name="sheet" />
+        </button>
+        <button
+          type="button"
+          className={
+            isRightPanelVisible ? "rail-icon-button active" : "rail-icon-button"
+          }
+          onClick={() => toggleRailPanel("right")}
+          aria-label="Toggle props panel"
+          title="Toggle props panel"
+        >
+          <Icon name="output" />
+        </button>
+        <button
+          type="button"
+          className={
+            isNodesPanelVisible ? "rail-icon-button active" : "rail-icon-button"
+          }
+          onClick={() => toggleRailPanel("nodes")}
+          aria-label="Toggle nodes panel"
+          title="Toggle nodes panel"
+        >
+          <Icon name="mapping" />
+        </button>
+      </nav>
+
       <header className="top-toolbar">
         <div className="brand-cluster">
           <div className="brand-mark">M</div>
@@ -934,18 +985,6 @@ function App() {
               : bridge.status}
           </span>
         </div>
-
-        <nav className="toolbar-tools" aria-label="Workflow tools">
-          {toolCatalog.map((tool) => (
-            <ToolButton
-              tool={tool}
-              activeTool={activeTool}
-              selectedGeneratedFrameId={selectedGeneratedFrameId}
-              onAddTool={addCanvasNode}
-              key={tool.type}
-            />
-          ))}
-        </nav>
 
         <div className="toolbar-actions">
           <button
@@ -989,8 +1028,14 @@ function App() {
         </div>
       )}
 
-      <div className="workspace-grid">
-        <aside className="left-panel panel-shell" aria-label="Data panel">
+      <div
+        className={`workspace-grid ${isLeftPanelVisible ? "" : "left-collapsed"} ${isRightPanelVisible ? "" : "right-collapsed"} ${isNodesPanelVisible ? "nodes-open" : ""}`}
+      >
+        <aside
+          className="left-panel panel-shell"
+          aria-label="Data panel"
+          aria-hidden={!isLeftPanelVisible}
+        >
           <div className="panel-header">
             <div>
               <span className="eyebrow">Data</span>
@@ -1139,65 +1184,35 @@ function App() {
           </div>
         </aside>
 
-        <main className="center-panel" aria-label="Node canvas">
-          <div className="canvas-toolbar">
+        <aside
+          className="nodes-panel panel-shell"
+          aria-label="Nodes panel"
+          aria-hidden={!isNodesPanelVisible}
+        >
+          <div className="panel-header">
             <div>
-              <span className="eyebrow">Canvas</span>
-              <strong>Node flow</strong>
-              <p>{notice}</p>
-            </div>
-            <div className="canvas-actions">
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={runAutoMap}
-              >
-                <Icon name="sparkle" />
-                Auto map
-              </button>
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={() => addCanvasNode("frame")}
-              >
-                <Icon name="frame" />
-                Add Frame
-              </button>
+              <span className="eyebrow">Nodes</span>
+              <h1>Workflow steps</h1>
+              <p>Sheet, mapping, generation, scale, output, and frame tools</p>
             </div>
           </div>
-          <div className="flow-stage">
-            {nodes.length === 0 && (
-              <div className="canvas-empty-state">
-                <strong>Start by adding a frame</strong>
-                <span>
-                  Drop tools from the top toolbar to build a clean mapping flow.
-                </span>
-                <button
-                  type="button"
-                  className="ghost-button"
-                  onClick={() => addCanvasNode("frame")}
-                >
-                  <Icon name="plus" />
-                  Add Frame
-                </button>
-              </div>
-            )}
-            <ReactFlowProvider>
-              <CanvasSurface
-                nodes={nodes}
-                edges={edges}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                onConnect={onConnect}
-                onDropTool={addCanvasNode}
+          <nav className="nodes-panel-tools" aria-label="Workflow tools">
+            {toolCatalog.map((tool) => (
+              <ToolButton
+                tool={tool}
+                activeTool={activeTool}
+                selectedGeneratedFrameId={selectedGeneratedFrameId}
+                onAddTool={addCanvasNode}
+                key={tool.type}
               />
-            </ReactFlowProvider>
-          </div>
-        </main>
+            ))}
+          </nav>
+        </aside>
 
         <aside
           className="right-panel panel-shell"
           aria-label="Properties panel"
+          aria-hidden={!isRightPanelVisible}
         >
           <div
             className="panel-tabs"
@@ -1442,171 +1457,64 @@ function App() {
             </section>
           )}
         </aside>
-      </div>
 
-      <footer className="bottom-panel" aria-label="Generated frames">
-        <div className="bottom-head">
-          <div>
-            <span className="eyebrow">Generated Frames</span>
-            <h2>{selectedVariantIndexes.length} variants selected</h2>
-          </div>
-          <div className="bottom-controls">
-            <button
-              type="button"
-              className="ghost-button"
-              onClick={() => setAllVariantGeneration(true)}
-            >
-              Select all
-            </button>
-            <button
-              type="button"
-              className="ghost-button"
-              onClick={() => setAllVariantGeneration(false)}
-            >
-              Deselect all
-            </button>
-            <button
-              type="button"
-              className="ghost-button"
-              onClick={downloadSelectedVariants}
-            >
-              <Icon name="download" />
-              Download
-            </button>
-            <label className="search-field compact-search">
-              <Icon name="search" />
-              <input
-                value={bottomQuery}
-                onChange={(event) => setBottomQuery(event.target.value)}
-                placeholder="Search frames..."
-              />
-            </label>
-          </div>
-        </div>
-
-        <div className="frame-gallery">
-          {frames.map((frame) => (
-            <button
-              type="button"
-              className={
-                selectedDockFrameIds.includes(frame.id)
-                  ? "generated-card active"
-                  : "generated-card"
-              }
-              draggable
-              onDragStart={(event) => {
-                event.dataTransfer.setData(
-                  "application/mitosis-tool",
-                  JSON.stringify({ type: "frame", frameId: frame.id }),
-                );
-                event.dataTransfer.effectAllowed = "move";
-              }}
-              onClick={() => toggleDockFrame(frame.id)}
-              key={`${frame.id}-${frame.createdAt}`}
-            >
-              <span className="check-badge">
-                <Icon
-                  name={
-                    selectedDockFrameIds.includes(frame.id) ? "check" : "frame"
-                  }
-                />
-              </span>
-              <strong>{frame.name}</strong>
-              <span>{frame.generationId || "generated frame"}</span>
-            </button>
-          ))}
-
-          {filteredVariantRows.map((variant) => {
-            const row = rows[variant.index] || [];
-            const preview = previewForVariant(
-              columns,
-              row,
-              variant,
-              variant.index,
-            );
-            const imageUrl = /^https?:\/\//i.test(preview.image)
-              ? preview.image
-              : "";
-            return (
-              <article
-                className={
-                  variant.generate
-                    ? "variant-preview-card selected"
-                    : "variant-preview-card"
-                }
-                style={{ "--preview-accent": preview.color }}
-                key={`variant-preview-${variant.index}`}
+        <main className="center-panel" aria-label="Node canvas">
+          <div className="canvas-toolbar">
+            <div>
+              <span className="eyebrow">Canvas</span>
+              <strong>Node flow</strong>
+              <p>{notice}</p>
+            </div>
+            <div className="canvas-actions">
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={runAutoMap}
               >
-                <label
-                  className="preview-select"
-                  title={
-                    variant.generate ? "Deselect variant" : "Select variant"
-                  }
-                >
-                  <input
-                    type="checkbox"
-                    checked={variant.generate}
-                    onChange={(event) =>
-                      updateVariantSetting(variant.index, {
-                        generate: event.target.checked,
-                      })
-                    }
-                  />
-                  <span>
-                    <Icon name="check" />
-                  </span>
-                </label>
-                <div className="preview-art">
-                  {imageUrl ? (
-                    <img src={imageUrl} alt="" />
-                  ) : (
-                    <span>{preview.kicker}</span>
-                  )}
-                </div>
-                <div className="preview-meta">
-                  <strong>{preview.title}</strong>
-                  <span>
-                    {preview.ratio} / {preview.resolution}
-                  </span>
-                </div>
+                <Icon name="sparkle" />
+                Auto map
+              </button>
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() => addCanvasNode("frame")}
+              >
+                <Icon name="frame" />
+                Add Frame
+              </button>
+            </div>
+          </div>
+          <div className="flow-stage">
+            {nodes.length === 0 && (
+              <div className="canvas-empty-state">
+                <strong>Start by adding a frame</strong>
+                <span>
+                  Drop tools from the top toolbar to build a clean mapping flow.
+                </span>
                 <button
                   type="button"
-                  className="icon-button small"
-                  onClick={() => addVariantFrameNode(variant.index)}
-                  title="Add variant frame"
+                  className="ghost-button"
+                  onClick={() => addCanvasNode("frame")}
                 >
-                  <Icon name="frame" />
+                  <Icon name="plus" />
+                  Add Frame
                 </button>
-              </article>
-            );
-          })}
+              </div>
+            )}
+            <ReactFlowProvider>
+              <CanvasSurface
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onConnect={onConnect}
+                onDropTool={addCanvasNode}
+              />
+            </ReactFlowProvider>
+          </div>
+        </main>
+      </div>
 
-          <button
-            type="button"
-            className="drop-zone-card"
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={(event) => {
-              event.preventDefault();
-              const raw = event.dataTransfer.getData(
-                "application/mitosis-tool",
-              );
-              if (!raw) return;
-              try {
-                const payload = JSON.parse(raw);
-                setSelectedGeneratedFrameId(payload.frameId || "");
-                addCanvasNode("frame", undefined, payload.frameId || "");
-              } catch (_error) {
-                // Ignore malformed drag payloads.
-              }
-            }}
-            onClick={() => addCanvasNode("frame")}
-          >
-            <Icon name="plus" />
-            <strong>Drop frame here</strong>
-            <span>or click to add</span>
-          </button>
-        </div>
-      </footer>
     </div>
   );
 }

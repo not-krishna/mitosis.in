@@ -1,19 +1,60 @@
 .app-shell {
+  --icon-rail-width: 52px;
   height: 100vh;
   min-height: 100dvh;
   display: grid;
-  grid-template-rows: 64px minmax(0, 1fr) 226px;
+  grid-template-rows: 64px minmax(0, 1fr);
   overflow: hidden;
+}
+
+.app-shell.with-icon-rail {
+  padding-left: var(--icon-rail-width);
+}
+
+.left-icon-rail {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 52px;
+  height: 100vh;
+  height: 100dvh;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  background: #0a0a0a;
+}
+
+.rail-icon-button {
+  width: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  height: 36px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: #737a84;
+}
+
+.rail-icon-button:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+
+.rail-icon-button.active {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
 }
 
 .top-toolbar {
   position: relative;
   z-index: 20;
   display: grid;
-  grid-template-columns: minmax(250px, 320px) minmax(780px, 1fr) minmax(
-      250px,
-      320px
-    );
+  grid-template-columns: minmax(280px, 1fr) auto;
   align-items: center;
   gap: 16px;
   min-width: 0;
@@ -273,14 +314,23 @@
 }
 
 .workspace-grid {
+  --left-panel-width: clamp(292px, 22vw, 360px);
+  --nodes-panel-width: 0px;
+  --right-panel-width: clamp(324px, 24vw, 392px);
+  position: relative;
   min-height: 0;
   display: grid;
-  grid-template-columns: clamp(292px, 22vw, 360px) minmax(420px, 1fr) clamp(
-      324px,
-      24vw,
-      392px
-    );
+  grid-template-columns:
+    var(--left-panel-width)
+    var(--nodes-panel-width)
+    var(--right-panel-width)
+    minmax(420px, 1fr);
+  transition: grid-template-columns 180ms ease;
   overflow: hidden;
+}
+
+.workspace-grid.nodes-open {
+  --nodes-panel-width: clamp(244px, 18vw, 296px);
 }
 
 .panel-shell {
@@ -291,14 +341,63 @@
   background:
     linear-gradient(180deg, rgba(24, 29, 41, 0.96), rgba(13, 16, 24, 0.96)),
     var(--panel);
+  transition:
+    opacity 160ms ease,
+    visibility 160ms ease;
+}
+
+.workspace-grid.left-collapsed {
+  --left-panel-width: 0px;
+}
+
+.workspace-grid.right-collapsed {
+  --right-panel-width: 0px;
+}
+
+.workspace-grid.left-collapsed .left-panel,
+.workspace-grid.right-collapsed .right-panel {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .left-panel {
   border-right: 1px solid var(--border);
 }
 
+.nodes-panel {
+  border-right: 1px solid var(--border);
+}
+
+.workspace-grid:not(.nodes-open) .nodes-panel {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  border-right: 0;
+}
+
 .right-panel {
-  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+
+.workspace-grid.left-collapsed .left-panel {
+  border-right: 0;
+}
+
+.workspace-grid.right-collapsed .right-panel {
+  border-right: 0;
+}
+
+.nodes-panel-tools {
+  display: grid;
+  gap: 8px;
+  padding: 0 12px 14px;
+}
+
+.nodes-panel-tools .tool-tab {
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
 }
 
 .panel-header {
@@ -1471,4 +1570,3 @@
 .muted {
   color: var(--muted);
 }
-
