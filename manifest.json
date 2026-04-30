@@ -12,7 +12,8 @@
   "ui": "ui.html",
   "networkAccess": {
     "allowedDomains": [
-      "https://images.unsplash.com"
-    ]
+      "*"
+    ],
+    "reasoning": "The plugin can fetch image URLs supplied by the user's CSV file for dynamic creative generation."
   }
 }

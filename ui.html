@@ -1,144 +1,1018 @@
-  <div class="section">
-        <h2>Export Frame to CSV</h2>
-        
-        <div class="input-group">
-            <label for="frameSelect">Select Frame:</label>
-            <select id="frameSelect">
-                  <option value="">Loading frames...</option>
-              </select>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mitosis.in</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23060606'/%3E%3Cpath d='M16 43V21h7l9 13 9-13h7v22h-7V31L34 43h-4l-7-12v12z' fill='%23ffffff'/%3E%3Ccircle cx='50' cy='16' r='6' fill='%236ee7b7'/%3E%3C/svg%3E">
+<style>
+  :root {
+      --bg: #1c1c1e;
+      --panel: #242426;
+      --panel-2: #2c2c2e;
+      --fg: #f5f5f7;
+      --muted: rgba(235, 235, 245, 0.62);
+      --soft: rgba(255, 255, 255, 0.07);
+      --border: rgba(84, 84, 88, 0.68);
+      --border-strong: rgba(142, 142, 147, 0.74);
+      --accent: #0a84ff;
+      --success: #30d158;
+      --danger: #ff453a;
+  }
+
+  * {
+      box-sizing: border-box;
+  }
+
+  html,
+  body {
+      height: 100%;
+  }
+
+  body {
+      background-color: var(--bg);
+      color: var(--fg);
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      overflow: hidden;
+  }
+
+  .app {
+      height: 100%;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      min-width: 0;
+  }
+
+  .app-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(28, 28, 30, 0.94);
+      backdrop-filter: blur(18px);
+  }
+
+  .brand-mark {
+      width: 30px;
+      height: 30px;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      background: var(--panel-2);
+      display: grid;
+      place-items: center;
+      color: var(--fg);
+      font-size: 15px;
+      font-weight: 800;
+      position: relative;
+      flex: 0 0 auto;
+  }
+
+  .brand-mark::after {
+      content: "";
+      position: absolute;
+      right: -3px;
+      top: -3px;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--success);
+  }
+
+  .brand-copy {
+      min-width: 0;
+      flex: 1;
+  }
+
+  .brand-title {
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.1;
+  }
+
+  .brand-subtitle {
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+  }
+
+  .size-controls {
+      display: flex;
+      gap: 6px;
+      flex: 0 0 auto;
+  }
+
+  .icon-button {
+      width: 30px;
+      height: 28px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: var(--panel-2);
+      color: var(--fg);
+      font-size: 11px;
+      cursor: pointer;
+  }
+
+  .content {
+      min-height: 0;
+      overflow-y: auto;
+      padding: 16px;
+  }
+
+  .section {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 14px;
+      margin-bottom: 14px;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+  }
+
+  h2 {
+      font-weight: 600;
+      font-size: 12px;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      margin: 0 0 12px 0;
+      color: var(--muted);
+  }
+
+  .setup-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 12px;
+  }
+
+  .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      margin-bottom: 12px;
+  }
+
+  label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+  }
+
+  input[type="file"],
+  select {
+      background: rgba(255,255,255,0.03);
+      color: var(--fg);
+      border: 1px solid var(--border);
+      padding: 9px;
+      border-radius: 7px;
+      font-family: inherit;
+      font-size: 12px;
+      outline: none;
+      width: 100%;
+  }
+
+  input[type="file"]::file-selector-button {
+      background: transparent;
+      color: var(--fg);
+      border: 1px solid var(--border);
+      padding: 4px 8px;
+      border-radius: 6px;
+      margin-right: 10px;
+      cursor: pointer;
+  }
+
+  select option {
+      background-color: var(--bg);
+      color: var(--fg);
+  }
+
+  button {
+      background: transparent;
+      color: var(--fg);
+      border: 1px solid var(--border);
+      padding: 11px 14px;
+      border-radius: 7px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      text-transform: uppercase;
+  }
+
+  button:disabled {
+      opacity: 0.28;
+      cursor: not-allowed;
+  }
+
+  button:not(:disabled):hover,
+  .icon-button:hover {
+      border-color: var(--border-strong);
+      background: rgba(255,255,255,0.05);
+  }
+
+  .primary {
+      width: 100%;
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #ffffff;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.18) inset;
+  }
+
+  .status {
+      color: var(--muted);
+      font-size: 12px;
+      min-height: 16px;
+  }
+
+  .status.error {
+      color: var(--danger);
+  }
+
+  .format-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+  }
+
+  .format-pill {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px;
+      font-size: 11px;
+      color: var(--muted);
+      min-width: 0;
+  }
+
+  code {
+      display: block;
+      color: var(--fg);
+      margin-top: 4px;
+      overflow-wrap: anywhere;
+  }
+
+  .tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+  }
+
+  .tab-button {
+      background: var(--panel-2);
+      text-transform: none;
+      letter-spacing: 0;
+      color: var(--muted);
+      border-radius: 8px;
+  }
+
+  .tab-button.active {
+      color: var(--fg);
+      border-color: var(--accent);
+      background: rgba(10, 132, 255, 0.16);
+  }
+
+  .panel {
+      display: none;
+  }
+
+  .panel.active {
+      display: block;
+  }
+
+  .toolbar-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 180px;
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 12px;
+  }
+
+  .mapping-list,
+  .target-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+  }
+
+  .mapping-list {
+      max-height: min(410px, calc(100vh - 360px));
+      overflow-y: auto;
+      padding-right: 4px;
+  }
+
+  .mapping-card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      background: rgba(255,255,255,0.025);
+  }
+
+  .mapping-head {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
+  }
+
+  .column-name {
+      flex: 1;
+      min-width: 0;
+      font-size: 12px;
+      font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+  }
+
+  .mapping-card select {
+      width: 126px;
+      padding: 8px;
+  }
+
+  .tag-line {
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 8px;
+      margin-bottom: 10px;
+      font-size: 11px;
+      color: var(--muted);
+  }
+
+  .target-option {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 8px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--fg);
+      text-transform: none;
+      letter-spacing: 0;
+      cursor: pointer;
+      background: rgba(255,255,255,0.015);
+  }
+
+  .target-option:hover {
+      border-color: var(--border-strong);
+  }
+
+  .target-option input {
+      margin-top: 2px;
+      accent-color: var(--accent);
+  }
+
+  .target-option strong {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      overflow-wrap: anywhere;
+  }
+
+  .target-option small {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.35;
+      margin-top: 2px;
+      overflow-wrap: anywhere;
+  }
+
+  .auto-targets {
+      max-height: min(430px, calc(100vh - 340px));
+      overflow-y: auto;
+      padding-right: 4px;
+  }
+
+  .empty-state {
+      color: var(--muted);
+      font-size: 12px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 10px;
+      line-height: 1.4;
+  }
+
+  .footer {
+      border-top: 1px solid var(--border);
+      padding: 12px 16px;
+      display: grid;
+      grid-template-columns: 1fr 180px;
+      gap: 12px;
+      align-items: center;
+      background: rgba(28, 28, 30, 0.94);
+      backdrop-filter: blur(18px);
+  }
+
+  .resize-handle {
+      position: fixed;
+      right: 4px;
+      bottom: 4px;
+      width: 18px;
+      height: 18px;
+      cursor: nwse-resize;
+      opacity: 0.75;
+  }
+
+  .resize-handle::before,
+  .resize-handle::after {
+      content: "";
+      position: absolute;
+      right: 2px;
+      bottom: 2px;
+      border-right: 1px solid var(--muted);
+      border-bottom: 1px solid var(--muted);
+  }
+
+  .resize-handle::before {
+      width: 14px;
+      height: 14px;
+  }
+
+  .resize-handle::after {
+      width: 8px;
+      height: 8px;
+  }
+
+  @media (max-width: 520px) {
+      .setup-grid,
+      .format-grid,
+      .toolbar-row,
+      .footer {
+          grid-template-columns: 1fr;
+      }
+
+      .size-controls {
+          display: none;
+      }
+  }
+
+  ::-webkit-scrollbar {
+      width: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+      background: var(--bg);
+  }
+
+  ::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.22);
+      border-radius: 3px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="app-header">
+      <div class="brand-mark">M</div>
+      <div class="brand-copy">
+          <div class="brand-title">Mitosis.in</div>
+          <div class="brand-subtitle">Bulk creative mapping and variation generation</div>
+      </div>
+      <div class="size-controls" aria-label="Window size presets">
+          <button type="button" class="icon-button" data-size="compact" title="Compact size">S</button>
+          <button type="button" class="icon-button" data-size="wide" title="Wide size">W</button>
+          <button type="button" class="icon-button" data-size="tall" title="Tall size">T</button>
+      </div>
+  </header>
+
+  <main class="content">
+      <div class="section">
+          <h2>Export Excel-Ready CSV</h2>
+          <div class="setup-grid">
+              <div class="input-group">
+                  <label for="exportFrameSelect">Template</label>
+                  <select id="exportFrameSelect">
+                      <option value="">Loading templates...</option>
+                  </select>
+              </div>
+              <div class="input-group">
+                  <label>&nbsp;</label>
+                  <button type="button" id="exportBtn" disabled>Export Excel CSV</button>
+              </div>
+          </div>
+      </div>
+
+      <div id="setupScreen" class="section">
+          <h2>Generate Variations</h2>
+          <div class="setup-grid">
+              <div class="input-group">
+                  <label for="masterFrameSelect">Master Template</label>
+                  <select id="masterFrameSelect">
+                      <option value="">Loading templates...</option>
+                  </select>
+              </div>
+              <div class="input-group">
+                  <label for="fileInput">Excel CSV File</label>
+                  <input type="file" id="fileInput" accept=".csv">
+              </div>
+          </div>
+          <button type="button" id="nextBtn" class="primary" disabled>Next</button>
+      </div>
+
+      <div id="mappingScreen" class="section" style="display: none;">
+          <h2>Mapping</h2>
+          <div class="format-grid">
+              <div class="format-pill">Text<code>#TEXT_TITLE</code></div>
+              <div class="format-pill">Image<code>#IMAGE_PRODUCT</code></div>
+              <div class="format-pill">Color<code>#COLOR_PRIMARY</code></div>
+              <div class="format-pill">Auto<code>#AUTO_COLOR</code></div>
+          </div>
+          <div class="empty-state" style="margin-bottom: 12px;">
+              Exported templates include PRIMARY_COLOR, SECONDARY_COLOR, TERTIARY_COLOR, TEXT_COLOR_1, and TEXT_COLOR_2.
           </div>
 
-    
+          <div id="mappingSummary" class="status"></div>
 
-          <button id="exportBtn" disabled>Export CSV</button>
+          <div class="tabs">
+              <button type="button" class="tab-button active" data-tab="data">Data Mapping</button>
+              <button type="button" class="tab-button" data-tab="color">Color Mapping</button>
+          </div>
+
+          <div id="dataPanel" class="panel active">
+              <div id="dataMappingList" class="mapping-list"></div>
+          </div>
+
+          <div id="colorPanel" class="panel">
+              <div class="toolbar-row">
+                  <div class="status">Choose CSV color columns or switch to generated palettes.</div>
+                  <div class="input-group" style="margin-bottom: 0;">
+                      <label for="colorModeSelect">Color Source</label>
+                      <select id="colorModeSelect">
+                          <option value="csv">Use CSV colors</option>
+                          <option value="auto">Auto-generate colors</option>
+                      </select>
+                  </div>
+              </div>
+              <div id="csvColorSection">
+                  <div id="colorMappingList" class="mapping-list"></div>
+              </div>
+              <div id="autoColorSection" style="display: none;">
+                  <div class="status" style="margin-bottom: 10px;">Select every layer that should receive generated colors.</div>
+                  <div id="autoColorTargets" class="auto-targets target-list"></div>
+              </div>
+          </div>
       </div>
-  </select>
+  </main>
 
-      <div class="section">
-        <h2>Upload CSV & Generate</h2>
+  <footer class="footer">
+      <div id="status" class="status" aria-live="polite"></div>
+      <button type="button" id="generateBtn" class="primary" style="display: none;">Generate Variations</button>
+  </footer>
+</div>
+<div id="resizeHandle" class="resize-handle" title="Drag to resize"></div>
 
-        <div class="input-group">
-            <label for="fileInput">Select CSV File:</label>
-            <input type="file" id="fileInput" accept=".csv">
-        </div>
-
-       
-        <button id="generateBtn" class="primary" disabled>Generate</button>
-    </div>
-
-
-   
 <script>
-const frameSelect = document.getElementById('frameSelect');
+const exportFrameSelect = document.getElementById('exportFrameSelect');
+const masterFrameSelect = document.getElementById('masterFrameSelect');
 const exportBtn = document.getElementById('exportBtn');
 const fileInput = document.getElementById('fileInput');
+const nextBtn = document.getElementById('nextBtn');
 const generateBtn = document.getElementById('generateBtn');
-const generatedFramesContainer = document.getElementById('generatedFramesContainer');
-const status = document.getElementById('status');
-const refreshBtn = document.getElementById('refreshBtn');
-const closeBtn = document.getElementById('closeBtn');
+const setupScreen = document.getElementById('setupScreen');
+const mappingScreen = document.getElementById('mappingScreen');
+const mappingSummary = document.getElementById('mappingSummary');
+const dataMappingList = document.getElementById('dataMappingList');
+const colorMappingList = document.getElementById('colorMappingList');
+const colorModeSelect = document.getElementById('colorModeSelect');
+const csvColorSection = document.getElementById('csvColorSection');
+const autoColorSection = document.getElementById('autoColorSection');
+const autoColorTargets = document.getElementById('autoColorTargets');
+const statusEl = document.getElementById('status');
+const resizeHandle = document.getElementById('resizeHandle');
 
+let currentCsvContent = '';
+let currentRows = [];
+let currentMappings = [];
+let currentLayerOptions = [];
+let currentMasterFrameId = '';
+let currentTab = 'data';
+let uiSize = { width: 560, height: 720 };
 
- window.addEventListener("message", (event) => {
-            const msg = event.data.pluginMessage;
-            if (!msg) return;
-            
-            if (msg.type === 'frames-loaded') {
-                availableFrames = msg.frames;
-                frameSelect.innerHTML = '<option value="">-- Select a frame --</option>';
-                availableFrames.forEach(frame => {
-                    const option = document.createElement('option');
-                    option.value = frame.id;
-                    option.textContent = frame.name;
-                    frameSelect.appendChild(option);
-                });
-                
-                frameSelect.addEventListener('change', () => {
-                    exportBtn.disabled = !frameSelect.value;
-                });
+function setStatus(message, isError) {
+    statusEl.textContent = message || '';
+    statusEl.classList.toggle('error', Boolean(isError));
+}
+
+function resizeUi(width, height) {
+    uiSize = {
+        width: Math.max(420, Math.min(980, Math.round(width))),
+        height: Math.max(420, Math.min(900, Math.round(height))),
+    };
+    parent.postMessage({ pluginMessage: { type: 'resize-ui', uiWidth: uiSize.width, uiHeight: uiSize.height } }, '*');
+}
+
+function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+    }[char]));
+}
+
+function normalizeKey(value) {
+    const withoutMarker = String(value)
+        .trim()
+        .replace(/^#/, '')
+        .replace(/^(TEXT|IMAGE|IMG|PHOTO|COLOR|COLOUR)_/i, '');
+
+    const normalized = withoutMarker
+        .replace(/[^a-zA-Z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .replace(/_+/g, '_')
+        .toUpperCase();
+
+    return normalized || 'VALUE';
+}
+
+function keyForKind(header, kind) {
+    let key = normalizeKey(header);
+    if (kind === 'COLOR') key = key.replace(/_(COLOR|COLOUR)$/i, '') || key;
+    return key || 'VALUE';
+}
+
+function tagForKind(header, kind) {
+    return kind === 'SKIP' ? '' : `#${kind}_${keyForKind(header, kind)}`;
+}
+
+function populateTemplateSelect(select, frames) {
+    select.innerHTML = '<option value="">-- Select a template --</option>';
+    frames.forEach((frame) => {
+        const option = document.createElement('option');
+        option.value = frame.id;
+        option.textContent = frame.type === 'COMPONENT' ? `${frame.name} (Component)` : frame.name;
+        select.appendChild(option);
+    });
+}
+
+function updateNextState() {
+    const hasFile = fileInput.files && fileInput.files.length > 0;
+    nextBtn.disabled = !hasFile || !masterFrameSelect.value;
+}
+
+function targetOptionsForKind(kind) {
+    if (kind === 'SKIP') return [];
+    return currentLayerOptions.filter((layer) => layer.targetKinds.indexOf(kind) >= 0);
+}
+
+function labelForLayer(layer) {
+    const type = layer.nodeType.replace(/_/g, ' ');
+    const preview = layer.preview ? ` - ${layer.preview}` : '';
+    return `${type}${preview}`;
+}
+
+function updateMappingFromInputs(columnIndex) {
+    const mapping = currentMappings.find((item) => item.columnIndex === columnIndex);
+    if (!mapping) return;
+
+    const checked = mappingScreen.querySelectorAll(`input[data-target-checkbox="true"][data-column-index="${columnIndex}"]:checked`);
+    mapping.targetIds = Array.from(checked).map((input) => input.value);
+}
+
+function renderTargets(mapping) {
+    const options = targetOptionsForKind(mapping.kind);
+    if (mapping.kind === 'SKIP') return '<div class="empty-state">Column skipped.</div>';
+    if (options.length === 0) return '<div class="empty-state">No compatible layers found.</div>';
+
+    return options.map((layer) => {
+        const checked = mapping.targetIds.indexOf(layer.id) >= 0 ? 'checked' : '';
+        return `<label class="target-option">
+            <input type="checkbox" data-target-checkbox="true" data-column-index="${mapping.columnIndex}" value="${escapeHtml(layer.id)}" ${checked}>
+            <span>
+                <strong>${escapeHtml(layer.name)}</strong>
+                <small>${escapeHtml(labelForLayer(layer))}</small>
+            </span>
+        </label>`;
+    }).join('');
+}
+
+function renderMappingCards(mappings, emptyText) {
+    if (mappings.length === 0) {
+        return `<div class="empty-state">${escapeHtml(emptyText)}</div>`;
+    }
+
+    return mappings.map((mapping) => {
+        const tagText = mapping.kind === 'SKIP' ? 'No tag' : mapping.tag;
+        return `<div class="mapping-card" data-mapping-card="${mapping.columnIndex}">
+            <div class="mapping-head">
+                <div class="column-name" title="${escapeHtml(mapping.header)}">${escapeHtml(mapping.header)}</div>
+                <select data-kind-select="true" data-column-index="${mapping.columnIndex}">
+                    <option value="TEXT" ${mapping.kind === 'TEXT' ? 'selected' : ''}>Text</option>
+                    <option value="IMAGE" ${mapping.kind === 'IMAGE' ? 'selected' : ''}>Image</option>
+                    <option value="COLOR" ${mapping.kind === 'COLOR' ? 'selected' : ''}>Color</option>
+                    <option value="SKIP" ${mapping.kind === 'SKIP' ? 'selected' : ''}>Skip</option>
+                </select>
+            </div>
+            <div class="tag-line">Tag<code>${escapeHtml(tagText)}</code></div>
+            <div class="target-list">${renderTargets(mapping)}</div>
+        </div>`;
+    }).join('');
+}
+
+function renderAutoColorTargets() {
+    const colorLayers = currentLayerOptions.filter((layer) => layer.targetKinds.indexOf('COLOR') >= 0);
+    if (colorLayers.length === 0) {
+        autoColorTargets.innerHTML = '<div class="empty-state">No fill layers available for auto color.</div>';
+        return;
+    }
+
+    autoColorTargets.innerHTML = colorLayers.map((layer) => {
+        const mappedAsColor = currentMappings.some((mapping) => mapping.kind === 'COLOR' && mapping.targetIds.indexOf(layer.id) >= 0);
+        const tagged = layer.name.indexOf('#COLOR') === 0 || layer.name === '#AUTO_COLOR';
+        const checked = mappedAsColor || tagged ? 'checked' : '';
+
+        return `<label class="target-option">
+            <input type="checkbox" data-auto-color-target="true" value="${escapeHtml(layer.id)}" ${checked}>
+            <span>
+                <strong>${escapeHtml(layer.name)}</strong>
+                <small>${escapeHtml(labelForLayer(layer))}</small>
+            </span>
+        </label>`;
+    }).join('');
+}
+
+function setTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('[data-tab]').forEach((button) => {
+        button.classList.toggle('active', button.dataset.tab === tab);
+    });
+    document.getElementById('dataPanel').classList.toggle('active', tab === 'data');
+    document.getElementById('colorPanel').classList.toggle('active', tab === 'color');
+}
+
+function updateColorMode() {
+    const autoMode = colorModeSelect.value === 'auto';
+    csvColorSection.style.display = autoMode ? 'none' : 'block';
+    autoColorSection.style.display = autoMode ? 'block' : 'none';
+    if (autoMode) renderAutoColorTargets();
+}
+
+function renderMappingScreen() {
+    const rowCount = Math.max(currentRows.length - 1, 0);
+    const colorCount = currentMappings.filter((mapping) => mapping.kind === 'COLOR').length;
+    mappingSummary.textContent = `${rowCount} rows - ${currentMappings.length} columns - ${colorCount} color columns`;
+
+    const dataMappings = currentMappings.filter((mapping) => mapping.kind !== 'COLOR');
+    const colorMappings = currentMappings.filter((mapping) => mapping.kind === 'COLOR');
+
+    dataMappingList.innerHTML = renderMappingCards(dataMappings, 'No data columns available.');
+    colorMappingList.innerHTML = renderMappingCards(colorMappings, 'No CSV color columns detected. Change any column type to Color in Data Mapping, or use Auto-generate colors.');
+    updateColorMode();
+}
+
+function collectMappingsFromScreen() {
+    currentMappings.forEach((mapping) => updateMappingFromInputs(mapping.columnIndex));
+    return currentMappings.map((mapping) => ({
+        columnIndex: mapping.columnIndex,
+        header: mapping.header,
+        kind: mapping.kind,
+        tag: mapping.kind === 'SKIP' ? '' : tagForKind(mapping.header, mapping.kind),
+        targetIds: mapping.kind === 'SKIP' ? [] : mapping.targetIds,
+    }));
+}
+
+function collectAutoColorTargetIds() {
+    if (colorModeSelect.value !== 'auto') return [];
+    const checked = autoColorTargets.querySelectorAll('input[data-auto-color-target="true"]:checked');
+    return Array.from(checked).map((input) => input.value);
+}
+
+window.addEventListener('message', (event) => {
+    const msg = event.data.pluginMessage;
+    if (!msg) return;
+
+    if (msg.type === 'frames-loaded') {
+        populateTemplateSelect(exportFrameSelect, msg.frames || []);
+        populateTemplateSelect(masterFrameSelect, msg.frames || []);
+        exportBtn.disabled = !exportFrameSelect.value;
+        updateNextState();
+        return;
+    }
+
+    if (msg.type === 'export-data') {
+        if (msg.data && msg.data.csvContent !== undefined) {
+            const blob = new Blob([msg.data.csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${msg.data.frameName || 'export'}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            setStatus('CSV exported.');
+        }
+        return;
+    }
+
+    if (msg.type === 'show-mapping-screen') {
+        currentRows = msg.rows || [];
+        currentMappings = msg.mappings || [];
+        currentLayerOptions = msg.layerOptions || [];
+        currentMasterFrameId = msg.masterFrameId || currentMasterFrameId;
+
+        setupScreen.style.display = 'none';
+        mappingScreen.style.display = 'block';
+        generateBtn.style.display = 'block';
+        nextBtn.textContent = 'Next';
+        nextBtn.disabled = false;
+        generateBtn.textContent = 'Generate Variations';
+        generateBtn.disabled = false;
+        colorModeSelect.value = 'csv';
+        setStatus('');
+        renderMappingScreen();
+        setTab('data');
+        return;
+    }
+
+    if (msg.type === 'fetch-images') {
+        setStatus('Fetching images...');
+        const fetchPromises = msg.urls.map(async (url) => {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const arrayBuffer = await response.arrayBuffer();
+                return { url, bytes: Array.from(new Uint8Array(arrayBuffer)) };
+            } catch (error) {
+                console.error('Failed to fetch image:', url, error);
+                return null;
             }
+        });
 
-            if (msg.type === 'export-data') {
-              console.log("Received data from plugin:", msg.data);
-              if(msg.data.error){
-               console.error(msg.data.error);
-              }
-              console.log('Exported frames to CSV successfully');
-              
-              if (msg.data.csvContent !== undefined) {
-                  // Trigger a download using a Blob and an anchor element
-                  // This will show a "Save As" dialog if the browser is configured to ask,
-                  // or download it straight to the default Downloads folder.
-                  const blob = new Blob([msg.data.csvContent], { type: 'text/csv;charset=utf-8;' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `${msg.data.frameName || 'export'}.csv`;
-                  
-                  // Appending to body is required to trigger click in some browsers
-                  document.body.appendChild(a);
-                  a.click();
-                  
-                  // Cleanup
-                  document.body.removeChild(a);
-                  URL.revokeObjectURL(url);
-              }
-            }
-            
-            if (msg.type === 'fetch-images') {
-                console.log("Fetching images...", msg.urls);
-                const fetchPromises = msg.urls.map(async (url) => {
-                    try {
-                        const response = await fetch(url);
-                        const arrayBuffer = await response.arrayBuffer();
-                        return { url, bytes: new Uint8Array(arrayBuffer) };
-                    } catch (e) {
-                        console.error("Failed to fetch image:", url, e);
-                        return null;
-                    }
-                });
-                
-                Promise.all(fetchPromises).then(results => {
-                    const imageBytesMap = {};
-                    for (const res of results) {
-                        if (res) imageBytesMap[res.url] = res.bytes;
-                    }
-                    parent.postMessage({ pluginMessage: { type: 'images-fetched', imageBytesMap, rows: msg.rows } }, '*');
-                });
-            }
-          })
+        Promise.all(fetchPromises).then((results) => {
+            const imageBytesMap = {};
+            results.forEach((result) => {
+                if (result) imageBytesMap[result.url] = result.bytes;
+            });
+            parent.postMessage({
+                pluginMessage: {
+                    type: 'images-fetched',
+                    imageBytesMap,
+                    rows: msg.rows,
+                    masterFrameId: msg.masterFrameId,
+                    mappings: msg.mappings,
+                    autoColorEnabled: msg.autoColorEnabled,
+                    autoColorTargetIds: msg.autoColorTargetIds,
+                },
+            }, '*');
+        });
+        return;
+    }
 
-exportBtn.onclick = () => {
-  console.log("Button clicked");
-  console.log(frameSelect.value);
-
-  const frameId = frameSelect.value;
-  if (frameId) {
-    // parent.postMessage is asynchronous and does not return a value.
-    // We send the message here, and the result will be received by
-    // the window.addEventListener("message", ...) listener above.
-    parent.postMessage({ pluginMessage: { type: 'export-data', frameId } }, '*');
-    console.log("Message sent to plugin backend");
-  }
-};
-
-fileInput.addEventListener('change', () => {
-    generateBtn.disabled = !fileInput.files || fileInput.files.length === 0;
+    if (msg.type === 'generation-error') {
+        nextBtn.textContent = 'Next';
+        nextBtn.disabled = false;
+        generateBtn.textContent = 'Generate Variations';
+        generateBtn.disabled = false;
+        setStatus(msg.message || 'Generation failed.', true);
+    }
 });
 
-generateBtn.onclick = () => {
-    console.log("Button clicked");
-    console.log(fileInput.value);
-    const file = fileInput.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const csvContent = e.target.result;
-            parent.postMessage({ pluginMessage: { type: 'import-data', csvContent } }, '*');
-            console.log("Message sent to plugin backend");
-        };
-        reader.readAsText(file);
-    }
-} 
+exportFrameSelect.addEventListener('change', () => {
+    exportBtn.disabled = !exportFrameSelect.value;
+});
 
+masterFrameSelect.addEventListener('change', updateNextState);
+fileInput.addEventListener('change', updateNextState);
+colorModeSelect.addEventListener('change', updateColorMode);
+
+document.querySelectorAll('[data-tab]').forEach((button) => {
+    button.addEventListener('click', () => setTab(button.dataset.tab));
+});
+
+document.querySelectorAll('[data-size]').forEach((button) => {
+    button.addEventListener('click', () => {
+        const sizes = {
+            compact: { width: 480, height: 620 },
+            wide: { width: 760, height: 720 },
+            tall: { width: 600, height: 860 },
+        };
+        const size = sizes[button.dataset.size] || sizes.wide;
+        resizeUi(size.width, size.height);
+    });
+});
+
+mappingScreen.addEventListener('change', (event) => {
+    const target = event.target;
+    if (!target.dataset) return;
+
+    if (target.dataset.kindSelect === 'true') {
+        const columnIndex = Number(target.dataset.columnIndex);
+        const mapping = currentMappings.find((item) => item.columnIndex === columnIndex);
+
+        if (mapping) {
+            mapping.kind = target.value;
+            mapping.tag = tagForKind(mapping.header, mapping.kind);
+            mapping.targetIds = mapping.targetIds.filter((id) => {
+                const layer = currentLayerOptions.find((item) => item.id === id);
+                return layer && layer.targetKinds.indexOf(mapping.kind) >= 0;
+            });
+        }
+
+        renderMappingScreen();
+        if (target.value === 'COLOR') setTab('color');
+        return;
+    }
+
+    if (target.dataset.targetCheckbox === 'true') {
+        updateMappingFromInputs(Number(target.dataset.columnIndex));
+        if (colorModeSelect.value === 'auto') renderAutoColorTargets();
+    }
+});
+
+exportBtn.onclick = () => {
+    const frameId = exportFrameSelect.value;
+    if (!frameId) return;
+    setStatus('Exporting CSV...');
+    parent.postMessage({ pluginMessage: { type: 'export-data', frameId } }, '*');
+};
+
+nextBtn.onclick = () => {
+    const file = fileInput.files && fileInput.files[0];
+    if (!file || !masterFrameSelect.value) return;
+
+    currentMasterFrameId = masterFrameSelect.value;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        currentCsvContent = String(event.target.result || '');
+        nextBtn.textContent = 'Loading...';
+        nextBtn.disabled = true;
+        setStatus('Reading CSV...');
+        parent.postMessage({
+            pluginMessage: {
+                type: 'prepare-generation',
+                masterFrameId: currentMasterFrameId,
+                csvContent: currentCsvContent,
+            },
+        }, '*');
+    };
+    reader.readAsText(file);
+};
+
+generateBtn.onclick = () => {
+    const mappings = collectMappingsFromScreen();
+    const autoMode = colorModeSelect.value === 'auto';
+    const activeMappings = mappings.filter((mapping) => mapping.kind !== 'SKIP' && mapping.targetIds.length > 0);
+    const autoTargets = collectAutoColorTargetIds();
+
+    if (activeMappings.length === 0 && autoTargets.length === 0) {
+        setStatus('Map at least one CSV column or auto-color layer.', true);
+        return;
+    }
+
+    generateBtn.textContent = 'Generating...';
+    generateBtn.disabled = true;
+    setStatus('Generating variations...');
+    parent.postMessage({
+        pluginMessage: {
+            type: 'import-mapped-data',
+            masterFrameId: currentMasterFrameId,
+            csvContent: currentCsvContent,
+            mappings,
+            autoColorEnabled: autoMode,
+            autoColorTargetIds: autoTargets,
+        },
+    }, '*');
+};
+
+resizeHandle.addEventListener('mousedown', (event) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const startWidth = window.innerWidth;
+    const startHeight = window.innerHeight;
+    let frameRequested = false;
+    let pendingWidth = startWidth;
+    let pendingHeight = startHeight;
+
+    function flushResize() {
+        frameRequested = false;
+        resizeUi(pendingWidth, pendingHeight);
+    }
+
+    function onMove(moveEvent) {
+        pendingWidth = startWidth + moveEvent.clientX - startX;
+        pendingHeight = startHeight + moveEvent.clientY - startY;
+        if (!frameRequested) {
+            frameRequested = true;
+            requestAnimationFrame(flushResize);
+        }
+    }
+
+    function onUp() {
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+    }
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+});
 </script>
+</body>
+</html>

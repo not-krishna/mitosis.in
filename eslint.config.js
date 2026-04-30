@@ -10,6 +10,15 @@ module.exports = tseslint.config(
   // tseslint.configs.recommended instead.
   tseslint.configs.recommended,
   {
+    files: ['**/*.ts'],
+    languageOptions: {
+      parserOptions: {
+        project: './tsconfig.json',
+        tsconfigRootDir: __dirname,
+      },
+    },
+  },
+  {
     plugins: {
       '@figma/figma-plugins': figmaPlugin,
     },
@@ -27,6 +36,6 @@ module.exports = tseslint.config(
     },
   },
   {
-    ignores: ['code.js', 'dist', 'eslint.config.js'],
+    ignores: ['*.bak.*', 'code.js', 'dist', 'eslint.config.js'],
   },
 )
