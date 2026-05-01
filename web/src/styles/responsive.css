@@ -17,10 +17,12 @@
     --left-panel-width: 300px;
     --nodes-panel-width: 0px;
     --right-panel-width: 340px;
+    --import-panel-width: 0px;
     grid-template-columns:
       var(--left-panel-width)
       var(--nodes-panel-width)
       var(--right-panel-width)
+      var(--import-panel-width)
       minmax(360px, 1fr);
   }
 }
@@ -50,6 +52,7 @@
 
   .left-panel,
   .nodes-panel,
+  .import-export-panel,
   .right-panel {
     display: none;
   }

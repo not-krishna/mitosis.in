@@ -42,6 +42,106 @@ function initialNodes() {
 }
 
 const initialEdges = [];
+const MITOSIS_SIGNATURE = "MITOSIS_CFG_V1";
+const MAPPING_PROPS_BY_LAYER_TYPE = {
+  TEXT: [
+    "Text content",
+    "Font family",
+    "Font size",
+    "Font weight",
+    "Text color",
+    "Visibility",
+  ],
+  IMAGE: ["Image file path / URL", "Visibility"],
+  SHAPE: ["Fill color", "Stroke color", "Opacity", "Visibility"],
+  ANY: ["Visibility"],
+};
+
+function createMappingEditorRow(partial = {}) {
+  return {
+    id: `mapping_row_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    columnName: "",
+    pathSegments: [],
+    layerId: "",
+    property: "",
+    ...partial,
+  };
+}
+
+function splitLayerPath(layerName) {
+  return String(layerName || "")
+    .split("/")
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+}
+
+function buildLayerTree(layerOptions) {
+  const root = { children: new Map(), layers: [] };
+  for (const layer of layerOptions || []) {
+    const segments = splitLayerPath(layer.name);
+    let cursor = root;
+    for (const segment of segments) {
+      if (!cursor.children.has(segment)) {
+        cursor.children.set(segment, { children: new Map(), layers: [] });
+      }
+      cursor = cursor.children.get(segment);
+    }
+    cursor.layers.push(layer);
+  }
+  return root;
+}
+
+function getTreeNodeByPath(tree, pathSegments) {
+  let cursor = tree;
+  for (const segment of pathSegments || []) {
+    if (!cursor.children.has(segment)) return null;
+    cursor = cursor.children.get(segment);
+  }
+  return cursor;
+}
+
+function defaultPropertyForKind(kind) {
+  if (kind === "IMAGE") return "Image file path / URL";
+  if (kind === "COLOR") return "Fill color";
+  return "Text content";
+}
+
+function resolveLayerType(layer) {
+  if (!layer) return "ANY";
+  if (layer.nodeType === "TEXT") return "TEXT";
+  if (layer.targetKinds?.includes("IMAGE") && !layer.targetKinds?.includes("TEXT"))
+    return "IMAGE";
+  if (
+    ["FRAME", "COMPONENT", "RECTANGLE", "ELLIPSE", "POLYGON", "STAR", "VECTOR", "LINE", "GROUP", "SECTION"].includes(
+      layer.nodeType,
+    )
+  )
+    return "SHAPE";
+  return "ANY";
+}
+
+function propertyOptionsForLayer(layer) {
+  const layerType = resolveLayerType(layer);
+  return (
+    MAPPING_PROPS_BY_LAYER_TYPE[layerType] || MAPPING_PROPS_BY_LAYER_TYPE.ANY
+  );
+}
+
+function kindForMappingProperty(property, layer) {
+  if (property === "Image file path / URL") return "IMAGE";
+  if (
+    property === "Fill color" ||
+    property === "Stroke color" ||
+    property === "Opacity" ||
+    property === "Text color"
+  ) {
+    return "COLOR";
+  }
+  if (property === "Visibility") {
+    return layer?.targetKinds?.[0] || "TEXT";
+  }
+  return "TEXT";
+}
 
 function App() {
   const bridge = useBridge();
@@ -68,9 +168,20 @@ function App() {
   const [columnQuery, setColumnQuery] = useState("");
   const [columnFilter, setColumnFilter] = useState("all");
   const [rightPanelTab, setRightPanelTab] = useState("mapping");
+  const [selectedNodeId, setSelectedNodeId] = useState("");
+  const [propsPanelView, setPropsPanelView] = useState("node");
+  const [mappingEditorFrameId, setMappingEditorFrameId] = useState("");
+  const [mappingEditorRows, setMappingEditorRows] = useState([]);
   const [isLeftPanelVisible, setIsLeftPanelVisible] = useState(true);
   const [isRightPanelVisible, setIsRightPanelVisible] = useState(false);
   const [isNodesPanelVisible, setIsNodesPanelVisible] = useState(false);
+  const [isImportExportPanelVisible, setIsImportExportPanelVisible] =
+    useState(false);
+  const [importExportError, setImportExportError] = useState("");
+  const [importedWorkspaceFileName, setImportedWorkspaceFileName] =
+    useState("");
+  const [pendingImportConfig, setPendingImportConfig] = useState(null);
+  const [pendingImportFileName, setPendingImportFileName] = useState("");
   const [bottomQuery, setBottomQuery] = useState("");
   const [selectedDockFrameIds, setSelectedDockFrameIds] = useState([]);
   const [notice, setNotice] = useState(
@@ -375,31 +486,56 @@ function App() {
     setNotice(`Downloaded ${selectedRows.length} selected variants.`);
   }, [columns, rows, selectedVariantIndexes]);
 
-  const importCsv = useCallback(() => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".csv,text/csv";
-    input.addEventListener("change", () => {
-      const file = input.files?.[0];
-      if (!file) return;
-      file.text().then((text) => {
-        const parsed = parseCsv(text.trim());
-        const headers = parsed[0] || [];
-        const bodyRows = parsed.slice(1);
-        setColumns(
-          headers.map((name, index) => ({
-            name,
-            type: detectColumnKind(name, bodyRows[0]?.[index]),
-          })),
-        );
-        setRows(bodyRows);
-        setVariantSettings({});
-        setMappings([]);
-        setConflicts([]);
-        setNotice(`Imported ${Math.max(bodyRows.length, 0)} rows.`);
+  const importCsv = useCallback((selectedFile = null, options = {}) => {
+    const clearOnly = Boolean(options?.clear);
+    if (clearOnly) {
+      setColumns([]);
+      setRows([]);
+      setVariantSettings({});
+      setMappings([]);
+      setConflicts([]);
+      setNotice("CSV data cleared.");
+      return Promise.resolve(true);
+    }
+
+    const applyFile = (file) =>
+      file
+        .text()
+        .then((text) => {
+          const parsed = parseCsv(text.trim());
+          const headers = parsed[0] || [];
+          const bodyRows = parsed.slice(1);
+          setColumns(
+            headers.map((name, index) => ({
+              name,
+              type: detectColumnKind(name, bodyRows[0]?.[index]),
+            })),
+          );
+          setRows(bodyRows);
+          setVariantSettings({});
+          setMappings([]);
+          setConflicts([]);
+          setNotice(`Imported ${Math.max(bodyRows.length, 0)} rows.`);
+          return true;
+        })
+        .catch(() => false);
+
+    if (selectedFile) return applyFile(selectedFile);
+
+    return new Promise((resolve) => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".csv";
+      input.addEventListener("change", () => {
+        const file = input.files?.[0];
+        if (!file) {
+          resolve(false);
+          return;
+        }
+        applyFile(file).then(resolve);
       });
+      input.click();
     });
-    input.click();
   }, []);
 
   const updateColumnName = useCallback((columnIndex, value) => {
@@ -812,17 +948,262 @@ function App() {
     [setEdges],
   );
 
+  const exportWorkspace = useCallback(() => {
+    const workspaceState = {
+      nodes,
+      edges,
+      mappings: mappingRows,
+      conflicts,
+      columns,
+      rows,
+      csv: {
+        raw: buildCsv(columns, rows),
+        encoding: "utf-8",
+      },
+      templateId,
+      campaignName,
+      variantSetName,
+      activeRatios,
+      variantSettings,
+      frames,
+      selectedGeneratedFrameId,
+      selectedDockFrameIds,
+      activeTool,
+      columnQuery,
+      columnFilter,
+      rightPanelTab,
+      bottomQuery,
+      notice,
+      nodeCounter: nodeCounterRef.current,
+      panelVisibility: {
+        data: isLeftPanelVisible,
+        props: isRightPanelVisible,
+        nodes: isNodesPanelVisible,
+        importExport: isImportExportPanelVisible,
+      },
+    };
+
+    const payload = {
+      __mitosis_signature: MITOSIS_SIGNATURE,
+      exportedAt: new Date().toISOString(),
+      workspace: workspaceState,
+    };
+    const serialized = JSON.stringify(payload, null, 2);
+    const blob = new Blob([serialized], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "workspace.mitosis";
+    anchor.click();
+    URL.revokeObjectURL(url);
+    setImportExportError("");
+    setNotice("Workspace exported.");
+  }, [
+    activeRatios,
+    activeTool,
+    bottomQuery,
+    campaignName,
+    columnFilter,
+    columnQuery,
+    columns,
+    conflicts,
+    edges,
+    frames,
+    mappingRows,
+    nodes,
+    notice,
+    rightPanelTab,
+    rows,
+    selectedDockFrameIds,
+    selectedGeneratedFrameId,
+    templateId,
+    isImportExportPanelVisible,
+    isLeftPanelVisible,
+    isNodesPanelVisible,
+    isRightPanelVisible,
+    variantSetName,
+    variantSettings,
+  ]);
+
+  const applyImportedWorkspace = useCallback(
+    (rawConfig, fileName) => {
+      const workspace =
+        rawConfig && typeof rawConfig.workspace === "object"
+          ? rawConfig.workspace
+          : rawConfig;
+
+      const csvRaw =
+        typeof workspace?.csv?.raw === "string" ? workspace.csv.raw : "";
+
+      let nextColumns = Array.isArray(workspace?.columns)
+        ? workspace.columns
+        : [];
+      let nextRows = Array.isArray(workspace?.rows) ? workspace.rows : [];
+
+      if (csvRaw.trim()) {
+        const parsed = parseCsv(csvRaw.trim());
+        const headers = parsed[0] || [];
+        const bodyRows = parsed.slice(1);
+        if (headers.length > 0) {
+          nextColumns = headers.map((name, index) => ({
+            name,
+            type:
+              workspace?.columns?.[index]?.type ||
+              detectColumnKind(name, bodyRows[0]?.[index]),
+          }));
+          nextRows = bodyRows;
+        }
+      }
+
+      const importedNodes = Array.isArray(workspace?.nodes)
+        ? workspace.nodes
+        : [];
+      const importedEdges = Array.isArray(workspace?.edges)
+        ? workspace.edges
+        : [];
+      const importedMappings = Array.isArray(workspace?.mappings)
+        ? workspace.mappings
+        : [];
+
+      setNodes([]);
+      setEdges([]);
+      setColumns(nextColumns);
+      setRows(nextRows);
+      setNodes(importedNodes);
+      setEdges(importedEdges);
+      setMappings(importedMappings);
+      setConflicts(Array.isArray(workspace?.conflicts) ? workspace.conflicts : []);
+      setVariantSettings(
+        workspace?.variantSettings && typeof workspace.variantSettings === "object"
+          ? workspace.variantSettings
+          : {},
+      );
+      setFrames(Array.isArray(workspace?.frames) ? workspace.frames : []);
+      setTemplateId(typeof workspace?.templateId === "string" ? workspace.templateId : "");
+      setCampaignName(
+        typeof workspace?.campaignName === "string"
+          ? workspace.campaignName
+          : "Campaign_A",
+      );
+      setActiveRatios(
+        Array.isArray(workspace?.activeRatios) && workspace.activeRatios.length
+          ? workspace.activeRatios
+          : ["1:1", "16:9"],
+      );
+      setSelectedGeneratedFrameId(
+        typeof workspace?.selectedGeneratedFrameId === "string"
+          ? workspace.selectedGeneratedFrameId
+          : "",
+      );
+      setSelectedDockFrameIds(
+        Array.isArray(workspace?.selectedDockFrameIds)
+          ? workspace.selectedDockFrameIds
+          : [],
+      );
+      setActiveTool(typeof workspace?.activeTool === "string" ? workspace.activeTool : "input");
+      setColumnQuery(
+        typeof workspace?.columnQuery === "string" ? workspace.columnQuery : "",
+      );
+      setColumnFilter(
+        workspace?.columnFilter === "mapped" ? "mapped" : "all",
+      );
+      setRightPanelTab(
+        workspace?.rightPanelTab === "frame" ? "frame" : "mapping",
+      );
+      setBottomQuery(
+        typeof workspace?.bottomQuery === "string" ? workspace.bottomQuery : "",
+      );
+      const panelVisibility = workspace?.panelVisibility || {};
+      const openPanel = panelVisibility.importExport
+        ? "import-export"
+        : panelVisibility.nodes
+          ? "nodes"
+          : panelVisibility.props
+            ? "right"
+            : panelVisibility.data === false
+              ? ""
+              : "left";
+      setIsLeftPanelVisible(openPanel === "left");
+      setIsRightPanelVisible(openPanel === "right");
+      setIsNodesPanelVisible(openPanel === "nodes");
+      setIsImportExportPanelVisible(openPanel === "import-export");
+      nodeCounterRef.current =
+        typeof workspace?.nodeCounter === "number"
+          ? workspace.nodeCounter
+          : importedNodes.length + 1;
+      handledExportsRef.current.clear();
+      handledGenerationsRef.current.clear();
+      setImportedWorkspaceFileName(fileName || "");
+      setImportExportError("");
+      setPendingImportConfig(null);
+      setPendingImportFileName("");
+      setNotice("Workspace imported.");
+    },
+    [setEdges, setNodes],
+  );
+
+  const handleImportWorkspaceFile = useCallback((event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    file
+      .text()
+      .then((text) => {
+        let parsed;
+        try {
+          parsed = JSON.parse(text);
+        } catch (_error) {
+          setImportExportError(
+            "Invalid file. Only .mitosis config files exported from this app are supported.",
+          );
+          return;
+        }
+
+        if (parsed?.__mitosis_signature !== MITOSIS_SIGNATURE) {
+          setImportExportError(
+            "Invalid file. Only .mitosis config files exported from this app are supported.",
+          );
+          return;
+        }
+
+        setPendingImportConfig(parsed);
+        setPendingImportFileName(file.name);
+        setImportExportError("");
+      })
+      .finally(() => {
+        event.target.value = "";
+      });
+  }, []);
+
   const toggleRailPanel = useCallback(
     (panel) => {
       const nextLeft = panel === "left" ? !isLeftPanelVisible : false;
       const nextRight = panel === "right" ? !isRightPanelVisible : false;
       const nextNodes = panel === "nodes" ? !isNodesPanelVisible : false;
+      const nextImport =
+        panel === "import-export" ? !isImportExportPanelVisible : false;
       setIsLeftPanelVisible(nextLeft);
       setIsRightPanelVisible(nextRight);
       setIsNodesPanelVisible(nextNodes);
+      setIsImportExportPanelVisible(nextImport);
     },
-    [isLeftPanelVisible, isRightPanelVisible, isNodesPanelVisible],
+    [
+      isImportExportPanelVisible,
+      isLeftPanelVisible,
+      isNodesPanelVisible,
+      isRightPanelVisible,
+    ],
   );
+
+  const handleCanvasSelectionChange = useCallback((selectedNodes = []) => {
+    const selected = selectedNodes[0] || null;
+    setSelectedNodeId(selected?.id || "");
+    setPropsPanelView("node");
+    if (!selected) return;
+    setIsLeftPanelVisible(false);
+    setIsNodesPanelVisible(false);
+    setIsImportExportPanelVisible(false);
+    setIsRightPanelVisible(true);
+  }, []);
 
   const connectedNodeIds = useMemo(() => {
     const ids = new Set();
@@ -833,10 +1214,214 @@ function App() {
     return ids;
   }, [edges]);
 
+  const selectedNode = useMemo(
+    () => nodes.find((node) => node.id === selectedNodeId) || null,
+    [nodes, selectedNodeId],
+  );
+
+  const mappingEditorTemplates = useMemo(
+    () => bridge.templates || [],
+    [bridge.templates],
+  );
+
+  const activeMappingEditorFrameId = useMemo(
+    () => mappingEditorFrameId || templateId || mappingEditorTemplates[0]?.id || "",
+    [mappingEditorFrameId, mappingEditorTemplates, templateId],
+  );
+
+  const activeMappingEditorFrame = useMemo(
+    () =>
+      mappingEditorTemplates.find(
+        (template) => template.id === activeMappingEditorFrameId,
+      ) || null,
+    [activeMappingEditorFrameId, mappingEditorTemplates],
+  );
+
+  const mappingEditorLayers = useMemo(
+    () => activeMappingEditorFrame?.layerOptions || [],
+    [activeMappingEditorFrame],
+  );
+
+  const mappingEditorLayerTree = useMemo(
+    () => buildLayerTree(mappingEditorLayers),
+    [mappingEditorLayers],
+  );
+
+  const resolveLayerForRow = useCallback(
+    (row) => {
+      const treeNode = getTreeNodeByPath(mappingEditorLayerTree, row.pathSegments);
+      if (!treeNode || treeNode.children.size > 0 || treeNode.layers.length === 0) {
+        return null;
+      }
+      if (row.layerId) {
+        return (
+          treeNode.layers.find((layer) => layer.id === row.layerId) ||
+          treeNode.layers[0]
+        );
+      }
+      return treeNode.layers[0];
+    },
+    [mappingEditorLayerTree],
+  );
+
+  const openMappingEditor = useCallback(
+    (nodeId = "") => {
+      const nextFrameId =
+        activeMappingEditorFrameId || mappingEditorTemplates[0]?.id || "";
+      const seededRows = (mappings || []).map((mapping) => {
+        const targetLayer = (bridge.templates || [])
+          .flatMap((template) => template.layerOptions || [])
+          .find((layer) => layer.id === mapping.targetIds?.[0]);
+        return createMappingEditorRow({
+          columnName: mapping.header || "",
+          pathSegments: splitLayerPath(targetLayer?.name || ""),
+          layerId: mapping.targetIds?.[0] || "",
+          property: mapping.property || defaultPropertyForKind(mapping.kind),
+        });
+      });
+      setSelectedNodeId(nodeId || selectedNodeId);
+      setMappingEditorFrameId(nextFrameId);
+      setMappingEditorRows(
+        seededRows.length ? seededRows : [createMappingEditorRow()],
+      );
+      setPropsPanelView("mapping-editor");
+      setIsLeftPanelVisible(false);
+      setIsNodesPanelVisible(false);
+      setIsImportExportPanelVisible(false);
+      setIsRightPanelVisible(true);
+    },
+    [
+      activeMappingEditorFrameId,
+      bridge.templates,
+      mappings,
+      mappingEditorTemplates,
+      selectedNodeId,
+    ],
+  );
+
+  const addMappingEditorRow = useCallback(() => {
+    setMappingEditorRows((items) => [...items, createMappingEditorRow()]);
+  }, []);
+
+  const removeMappingEditorRow = useCallback((rowId) => {
+    setMappingEditorRows((items) => items.filter((row) => row.id !== rowId));
+  }, []);
+
+  const updateMappingEditorRowColumn = useCallback((rowId, columnName) => {
+    setMappingEditorRows((items) =>
+      items.map((row) => (row.id === rowId ? { ...row, columnName } : row)),
+    );
+  }, []);
+
+  const updateMappingEditorRowPath = useCallback(
+    (rowId, levelIndex, segment) => {
+      setMappingEditorRows((items) =>
+        items.map((row) => {
+          if (row.id !== rowId) return row;
+          const nextPath = [...row.pathSegments.slice(0, levelIndex), segment];
+          const treeNode = getTreeNodeByPath(mappingEditorLayerTree, nextPath);
+          if (!treeNode || treeNode.children.size > 0 || treeNode.layers.length === 0) {
+            return { ...row, pathSegments: nextPath, layerId: "", property: "" };
+          }
+          const resolvedLayer = treeNode.layers[0];
+          const nextPropertyOptions = propertyOptionsForLayer(resolvedLayer);
+          return {
+            ...row,
+            pathSegments: nextPath,
+            layerId: resolvedLayer.id,
+            property: nextPropertyOptions.includes(row.property)
+              ? row.property
+              : nextPropertyOptions[0] || "",
+          };
+        }),
+      );
+    },
+    [mappingEditorLayerTree],
+  );
+
+  const updateMappingEditorRowProperty = useCallback((rowId, property) => {
+    setMappingEditorRows((items) =>
+      items.map((row) => (row.id === rowId ? { ...row, property } : row)),
+    );
+  }, []);
+
+  const saveMappingsFromEditor = useCallback(() => {
+    const nextMappings = mappingEditorRows
+      .map((row) => {
+        const columnIndex = columns.findIndex(
+          (column) => column.name === row.columnName,
+        );
+        const layer = resolveLayerForRow(row);
+        if (columnIndex < 0 || !layer || !row.property) return null;
+        const kind = kindForMappingProperty(row.property, layer);
+        return {
+          columnIndex,
+          header: row.columnName,
+          kind,
+          tag: kind === "SKIP" ? "" : tagForKind(row.columnName, kind),
+          targetIds: [layer.id],
+          confidence: 1,
+          rule: "mapping-editor",
+          property: row.property,
+          frameId: activeMappingEditorFrameId,
+          pathSegments: row.pathSegments,
+        };
+      })
+      .filter(Boolean);
+    setMappings(nextMappings);
+    setConflicts([]);
+    setPropsPanelView("node");
+    setNotice("Mappings saved.");
+  }, [
+    activeMappingEditorFrameId,
+    columns,
+    mappingEditorRows,
+    resolveLayerForRow,
+  ]);
+
+  useEffect(() => {
+    if (!selectedNode || selectedNode.type !== "mapping") return;
+    const sourceMappings = (
+      selectedNode.data?.savedMappings?.length
+        ? selectedNode.data.savedMappings
+        : selectedNode.data?.mappings || []
+    ).filter(Boolean);
+
+    const nextRows =
+      sourceMappings.length > 0
+        ? sourceMappings.map((mapping) => {
+            const targetLayer = (bridge.templates || [])
+              .flatMap((template) => template.layerOptions || [])
+              .find((layer) => layer.id === mapping.targetIds?.[0]);
+            return createMappingEditorRow({
+              columnName: mapping.header || "",
+              pathSegments:
+                mapping.pathSegments?.length > 0
+                  ? mapping.pathSegments
+                  : splitLayerPath(targetLayer?.name || ""),
+              layerId: mapping.targetIds?.[0] || "",
+              property: mapping.property || defaultPropertyForKind(mapping.kind),
+            });
+          })
+        : [createMappingEditorRow()];
+
+    setMappingEditorRows(nextRows);
+    const mappedFrameId =
+      sourceMappings.find((mapping) => mapping.frameId)?.frameId || "";
+    setMappingEditorFrameId(
+      mappedFrameId || templateId || bridge.templates[0]?.id || "",
+    );
+  }, [bridge.templates, selectedNode, selectedNodeId, templateId]);
+
   const typeNodeData = useMemo(
     () => ({
-      input: { columns, rows, importCsv, exportCsv, autoMap: runAutoMap },
-      mapping: { mappings: mappingRows, conflicts: mappingWarnings },
+      newInput: { columns, rows, importCsv, exportCsv, autoMap: runAutoMap },
+      mapping: {
+        mappings: mappingRows,
+        savedMappings: mappings,
+        conflicts: mappingWarnings,
+        openMappingEditor,
+      },
       generation: {
         templates: bridge.templates,
         templateId,
@@ -857,8 +1442,10 @@ function App() {
       exportCsv,
       frames,
       importCsv,
+      mappings,
       mappingRows,
       mappingWarnings,
+      openMappingEditor,
       refreshFigma,
       rows,
       runAll,
@@ -896,7 +1483,12 @@ function App() {
         return {
           ...node,
           className,
-          data: { ...node.data, connected, ...(typeNodeData[node.type] || {}) },
+          data: {
+            ...node.data,
+            nodeId: node.id,
+            connected,
+            ...(typeNodeData[node.type] || {}),
+          },
         };
       }),
     );
@@ -969,6 +1561,19 @@ function App() {
         >
           <Icon name="mapping" />
         </button>
+        <button
+          type="button"
+          className={
+            isImportExportPanelVisible
+              ? "rail-icon-button active"
+              : "rail-icon-button"
+          }
+          onClick={() => toggleRailPanel("import-export")}
+          aria-label="Toggle import export panel"
+          title="Toggle import export panel"
+        >
+          <Icon name="download" />
+        </button>
       </nav>
 
       <header className="top-toolbar">
@@ -1029,7 +1634,7 @@ function App() {
       )}
 
       <div
-        className={`workspace-grid ${isLeftPanelVisible ? "" : "left-collapsed"} ${isRightPanelVisible ? "" : "right-collapsed"} ${isNodesPanelVisible ? "nodes-open" : ""}`}
+        className={`workspace-grid ${isLeftPanelVisible ? "" : "left-collapsed"} ${isRightPanelVisible ? "" : "right-collapsed"} ${isNodesPanelVisible ? "nodes-open" : ""} ${isImportExportPanelVisible ? "import-open" : ""}`}
       >
         <aside
           className="left-panel panel-shell"
@@ -1214,247 +1819,310 @@ function App() {
           aria-label="Properties panel"
           aria-hidden={!isRightPanelVisible}
         >
-          <div
-            className="panel-tabs"
-            role="tablist"
-            aria-label="Properties tabs"
-          >
-            <button
-              type="button"
-              role="tab"
-              className={rightPanelTab === "mapping" ? "active" : ""}
-              onClick={() => setRightPanelTab("mapping")}
-            >
-              Mapping
-            </button>
-            <button
-              type="button"
-              role="tab"
-              className={rightPanelTab === "frame" ? "active" : ""}
-              onClick={() => setRightPanelTab("frame")}
-            >
-              Frame Properties
-            </button>
+          {selectedNode?.type === "mapping" ? (
+            <>
+              <div className="panel-header">
+                <div>
+                  <span className="eyebrow">Mapping Editor</span>
+                  <h1>Mapping</h1>
+                  <p>
+                    Configure CSV-to-Figma mappings for the selected mapping
+                    node.
+                  </p>
+                </div>
+              </div>
+              <section className="property-section">
+                <div className="mapping-editor-panel">
+                  <label className="field-control">
+                    <span>Figma frame</span>
+                    <select
+                      value={activeMappingEditorFrameId}
+                      onChange={(event) => {
+                        setMappingEditorFrameId(event.target.value);
+                        setMappingEditorRows((items) =>
+                          items.map((row) => ({
+                            ...row,
+                            pathSegments: [],
+                            layerId: "",
+                            property: "",
+                          })),
+                        );
+                      }}
+                    >
+                      <option value="">Choose frame</option>
+                      {mappingEditorTemplates.map((template) => (
+                        <option value={template.id} key={template.id}>
+                          {template.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <div className="mapping-editor-rows">
+                    {mappingEditorRows.map((row) => {
+                      const treeNode = getTreeNodeByPath(
+                        mappingEditorLayerTree,
+                        row.pathSegments,
+                      );
+                      const resolvedLayer = resolveLayerForRow(row);
+                      const propertyOptions = propertyOptionsForLayer(
+                        resolvedLayer,
+                      );
+                      const kind = kindForMappingProperty(
+                        row.property || defaultPropertyForKind("TEXT"),
+                        resolvedLayer,
+                      );
+                      const tag = row.columnName ? tagForKind(row.columnName, kind) : "";
+                      const targets = resolvedLayer?.id
+                        ? [resolvedLayer.id]
+                        : row.layerId
+                          ? [row.layerId]
+                          : [];
+
+                      const levelOptions = [];
+                      let cursor = mappingEditorLayerTree;
+                      let levelIndex = 0;
+                      while (cursor) {
+                        const entries = [...cursor.children.keys()].sort();
+                        if (entries.length === 0) break;
+                        levelOptions.push(entries);
+                        const selectedSegment = row.pathSegments[levelIndex];
+                        if (
+                          !selectedSegment ||
+                          !cursor.children.has(selectedSegment)
+                        ) {
+                          break;
+                        }
+                        cursor = cursor.children.get(selectedSegment);
+                        levelIndex += 1;
+                      }
+
+                      return (
+                        <div className="mapping-editor-row" key={row.id}>
+                          <select
+                            value={row.columnName}
+                            onChange={(event) =>
+                              updateMappingEditorRowColumn(
+                                row.id,
+                                event.target.value,
+                              )
+                            }
+                          >
+                            <option value="">CSV column</option>
+                            {columns.map((column) => (
+                              <option value={column.name} key={column.name}>
+                                {column.name}
+                              </option>
+                            ))}
+                          </select>
+
+                          <div className="mapping-editor-cascade">
+                            {levelOptions.map((options, index) => (
+                              <select
+                                value={row.pathSegments[index] || ""}
+                                onChange={(event) =>
+                                  updateMappingEditorRowPath(
+                                    row.id,
+                                    index,
+                                    event.target.value,
+                                  )
+                                }
+                                key={`${row.id}-level-${index}`}
+                              >
+                                <option value="">Level {index + 1}</option>
+                                {options.map((option) => (
+                                  <option value={option} key={option}>
+                                    {option}
+                                  </option>
+                                ))}
+                              </select>
+                            ))}
+                            {treeNode &&
+                              treeNode.children.size === 0 &&
+                              treeNode.layers.length > 0 && (
+                                <select
+                                  value={row.property}
+                                  onChange={(event) =>
+                                    updateMappingEditorRowProperty(
+                                      row.id,
+                                      event.target.value,
+                                    )
+                                  }
+                                >
+                                  <option value="">Property</option>
+                                  {propertyOptions.map((property) => (
+                                    <option value={property} key={property}>
+                                      {property}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                            <div className="mapping-editor-readout">
+                              <span>[CSV Column: "{row.columnName || "-"}"]</span>
+                              <span>{` → [Kind: ${kind}]`}</span>
+                              <span>{` [Tag: ${tag || "-"}]`}</span>
+                              <span>
+                                {` [Targets: ${targets.length ? targets.join(", ") : "-"}]`}
+                              </span>
+                              {kind === "SKIP" && (
+                                <span className="status-chip missing">Skip</span>
+                              )}
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            className="icon-button small"
+                            onClick={() => removeMappingEditorRow(row.id)}
+                            title="Delete mapping row"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mapping-editor-actions">
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      onClick={addMappingEditorRow}
+                    >
+                      <Icon name="plus" />
+                      Add Row
+                    </button>
+                    <button
+                      type="button"
+                      className="primary-generate"
+                      onClick={saveMappingsFromEditor}
+                    >
+                      Save Mappings
+                    </button>
+                  </div>
+                </div>
+              </section>
+            </>
+          ) : (
+            <>
+              <div className="panel-header">
+                <div>
+                  <span className="eyebrow">Props</span>
+                  <h1>
+                    {selectedNode
+                      ? selectedNode.data?.label || selectedNode.type || "Node"
+                      : "No node selected"}
+                  </h1>
+                  <p>
+                    {selectedNode
+                      ? "Showing properties for the selected node."
+                      : "Select a node to view properties"}
+                  </p>
+                </div>
+              </div>
+              <section className="property-section">
+                {selectedNode ? (
+                  <pre className="selected-node-properties">
+                    {JSON.stringify(selectedNode, null, 2)}
+                  </pre>
+                ) : (
+                  <div className="empty-inline">
+                    <strong>Select a node to view properties</strong>
+                    <span>Click any node on the canvas to inspect it here.</span>
+                  </div>
+                )}
+              </section>
+            </>
+          )}
+        </aside>
+
+        <aside
+          className="import-export-panel panel-shell"
+          aria-label="Import export panel"
+          aria-hidden={!isImportExportPanelVisible}
+        >
+          <div className="panel-header">
+            <div>
+              <span className="eyebrow">Import / Export</span>
+              <h1>Workspace config</h1>
+              <p>Export or import a complete .mitosis workspace file.</p>
+            </div>
           </div>
 
-          {rightPanelTab === "mapping" ? (
-            <section className="property-section">
-              <div className="section-title-row">
-                <div>
-                  <span className="eyebrow">Mapping list</span>
-                  <h2>{connectedMappingCount} connected</h2>
-                </div>
-                <button
-                  type="button"
-                  className="ghost-button"
-                  onClick={runAutoMap}
-                >
-                  <Icon name="sparkle" />
-                  Auto map
-                </button>
-              </div>
+          <div className="import-export-content">
+            <button
+              type="button"
+              className="ghost-button import-export-button"
+              onClick={exportWorkspace}
+            >
+              <Icon name="download" />
+              Export Workspace
+            </button>
 
-              <div className="mapping-table">
-                {mappingRows.map((mapping) => {
-                  const compatibleLayers = compatibleLayersForMapping(mapping);
-                  const selectedTarget = mapping.targetIds[0] || "";
-                  const status = mappingStatus(mapping);
-                  return (
-                    <article
-                      className={`mapping-row-editor ${status}`}
-                      key={mapping.header}
-                    >
-                      <div className="mapping-name-cell">
-                        <span className={`mapping-dot ${status}`} />
-                        <div>
-                          <strong>{mapping.header}</strong>
-                          <span>
-                            {status} /{" "}
-                            {Math.round((mapping.confidence || 0) * 100)}%
-                          </span>
-                        </div>
-                      </div>
-                      <select
-                        value={mapping.kind}
-                        onChange={(event) =>
-                          updateMappingKind(mapping, event.target.value)
-                        }
-                        aria-label={`${mapping.header} kind`}
-                      >
-                        <option value="TEXT">Text</option>
-                        <option value="IMAGE">Image</option>
-                        <option value="COLOR">Color</option>
-                        <option value="SKIP">Skip</option>
-                      </select>
-                      <input
-                        value={mapping.tag}
-                        onChange={(event) =>
-                          updateMapping(mapping.header, {
-                            tag: event.target.value,
-                          })
-                        }
-                        disabled={mapping.kind === "SKIP"}
-                        aria-label={`${mapping.header} tag`}
-                      />
-                      <select
-                        value={selectedTarget}
-                        onChange={(event) =>
-                          updateMapping(mapping.header, {
-                            targetIds: event.target.value
-                              ? [event.target.value]
-                              : [],
-                            confidence: event.target.value ? 0.88 : 0,
-                            rule: event.target.value
-                              ? "manual-target"
-                              : "manual-empty",
-                          })
-                        }
-                        disabled={mapping.kind === "SKIP"}
-                        aria-label={`${mapping.header} target`}
-                      >
-                        <option value="">No target selected</option>
-                        {compatibleLayers.map((layer) => (
-                          <option value={layer.id} key={layer.id}>
-                            {layer.name}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        className="subtle-action"
-                        onClick={() => useExactTargets(mapping)}
-                        disabled={mapping.kind === "SKIP"}
-                      >
-                        <Icon name="link" />
-                        Use exact tag
-                      </button>
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
-          ) : (
-            <section className="property-section">
-              <div className="section-title-row">
-                <div>
-                  <span className="eyebrow">Frame</span>
-                  <h2>{selectedTemplate?.name || "No master frame"}</h2>
-                </div>
-                <span
-                  className={`status-chip ${bridge.status === "connected" ? "connected" : "missing"}`}
-                >
-                  {bridge.status}
-                </span>
-              </div>
+            <hr className="import-export-divider" />
 
-              <div className="property-stack">
-                <label className="field-control">
-                  <span>Master frame</span>
-                  <select
-                    value={templateId}
-                    onChange={(event) => setTemplateId(event.target.value)}
+            <label className="import-export-upload">
+              <span>Import Workspace</span>
+              <input
+                type="file"
+                accept=".mitosis"
+                onChange={handleImportWorkspaceFile}
+              />
+            </label>
+
+            {importExportError && (
+              <p className="import-export-error" role="alert">
+                {importExportError}
+              </p>
+            )}
+
+            {importedWorkspaceFileName && (
+              <p className="import-export-filename">
+                Loaded: {importedWorkspaceFileName}
+              </p>
+            )}
+          </div>
+
+          {pendingImportConfig && (
+            <div
+              className="import-export-confirm"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Overwrite current workspace"
+            >
+              <div className="import-export-confirm-card">
+                <h2>Overwrite current workspace?</h2>
+                <p>
+                  Importing this file will permanently overwrite all current
+                  nodes, connections, data mappings, and settings. This cannot
+                  be undone.
+                </p>
+                <div className="import-export-confirm-actions">
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={() => {
+                      setPendingImportConfig(null);
+                      setPendingImportFileName("");
+                    }}
                   >
-                    <option value="">Choose template</option>
-                    {bridge.templates.map((template) => (
-                      <option value={template.id} key={template.id}>
-                        {template.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="field-control">
-                  <span>Campaign</span>
-                  <input
-                    value={campaignName}
-                    onChange={(event) => setCampaignName(event.target.value)}
-                  />
-                </label>
-                <label className="field-control">
-                  <span>Generated frame</span>
-                  <select
-                    value={selectedGeneratedFrameId}
-                    onChange={(event) =>
-                      setSelectedGeneratedFrameId(event.target.value)
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="primary-generate"
+                    onClick={() =>
+                      applyImportedWorkspace(
+                        pendingImportConfig,
+                        pendingImportFileName,
+                      )
                     }
                   >
-                    <option value="">None selected</option>
-                    {frames.map((frame) => (
-                      <option value={frame.id} key={frame.id}>
-                        {frame.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <div className="ratio-editor">
-                  <span>Scale ratios</span>
-                  <div>
-                    {Object.keys(ratioSizes).map((ratio) => (
-                      <button
-                        type="button"
-                        className={activeRatios.includes(ratio) ? "active" : ""}
-                        onClick={() => toggleRatio(ratio)}
-                        key={ratio}
-                      >
-                        {ratio}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="connection-list compact">
-                  <div className="section-mini-head">
-                    <strong>Connections</strong>
-                    <span>{edges.length}</span>
-                  </div>
-                  {edges.length === 0 ? (
-                    <div className="connection-empty">
-                      Connect node anchors to define the workflow.
-                    </div>
-                  ) : (
-                    edges.map((edge) => (
-                      <div className="connection-row" key={edge.id}>
-                        <span>
-                          {edge.source}
-                          {" -> "}
-                          {edge.target}
-                        </span>
-                        <button
-                          type="button"
-                          className="icon-button small"
-                          onClick={() => disconnectEdge(edge.id)}
-                          title="Disconnect"
-                        >
-                          <Icon name="unlink" />
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                <div className="event-summary">
-                  <div className="section-mini-head">
-                    <strong>Activity</strong>
-                    <span>{bridge.events.length}</span>
-                  </div>
-                  {bridge.events.slice(0, 5).map((event, index) => (
-                    <div className="event-row" key={`${event.type}-${index}`}>
-                      <strong>{event.type}</strong>
-                      <span>
-                        {event.frameNames?.length
-                          ? `${event.frameNames.length} frames`
-                          : "plugin event"}
-                      </span>
-                    </div>
-                  ))}
-                  {bridge.events.length === 0 && (
-                    <div className="connection-empty">
-                      No bridge activity yet.
-                    </div>
-                  )}
+                    Confirm
+                  </button>
                 </div>
               </div>
-            </section>
+            </div>
           )}
         </aside>
 
@@ -1509,6 +2177,7 @@ function App() {
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
                 onDropTool={addCanvasNode}
+                onSelectionChange={handleCanvasSelectionChange}
               />
             </ReactFlowProvider>
           </div>

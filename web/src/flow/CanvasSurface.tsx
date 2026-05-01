@@ -15,6 +15,7 @@ export function CanvasSurface({
   onEdgesChange,
   onConnect,
   onDropTool,
+  onSelectionChange,
 }) {
   const { screenToFlowPosition } = useReactFlow();
 
@@ -43,6 +44,13 @@ export function CanvasSurface({
     [onDropTool, screenToFlowPosition],
   );
 
+  const handleSelectionChange = useCallback(
+    (selection) => {
+      onSelectionChange?.(selection?.nodes || []);
+    },
+    [onSelectionChange],
+  );
+
   return (
     <ReactFlow
       nodes={nodes}
@@ -51,6 +59,7 @@ export function CanvasSurface({
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
       onConnect={onConnect}
+      onSelectionChange={handleSelectionChange}
       deleteKeyCode={["Delete", "Backspace"]}
       onDragOver={handleDragOver}
       onDrop={handleDrop}

@@ -317,6 +317,7 @@
   --left-panel-width: clamp(292px, 22vw, 360px);
   --nodes-panel-width: 0px;
   --right-panel-width: clamp(324px, 24vw, 392px);
+  --import-panel-width: 0px;
   position: relative;
   min-height: 0;
   display: grid;
@@ -324,6 +325,7 @@
     var(--left-panel-width)
     var(--nodes-panel-width)
     var(--right-panel-width)
+    var(--import-panel-width)
     minmax(420px, 1fr);
   transition: grid-template-columns 180ms ease;
   overflow: hidden;
@@ -331,6 +333,10 @@
 
 .workspace-grid.nodes-open {
   --nodes-panel-width: clamp(244px, 18vw, 296px);
+}
+
+.workspace-grid.import-open {
+  --import-panel-width: clamp(284px, 20vw, 340px);
 }
 
 .panel-shell {
@@ -380,12 +386,124 @@
   border-right: 1px solid var(--border);
 }
 
+.import-export-panel {
+  position: relative;
+  border-right: 1px solid var(--border);
+}
+
+.workspace-grid:not(.import-open) .import-export-panel {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  border-right: 0;
+}
+
 .workspace-grid.left-collapsed .left-panel {
   border-right: 0;
 }
 
 .workspace-grid.right-collapsed .right-panel {
   border-right: 0;
+}
+
+.import-export-content {
+  display: grid;
+  gap: 12px;
+  padding: 0 16px 16px;
+}
+
+.import-export-button {
+  justify-content: flex-start;
+}
+
+.import-export-divider {
+  width: 100%;
+  height: 1px;
+  border: 0;
+  margin: 2px 0;
+  background: var(--border);
+}
+
+.import-export-upload {
+  display: grid;
+  gap: 8px;
+}
+
+.import-export-upload span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.import-export-upload input[type="file"] {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(9, 12, 18, 0.78);
+  color: var(--fg);
+  padding: 8px;
+}
+
+.import-export-upload input[type="file"]::file-selector-button {
+  margin-right: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(20, 24, 35, 0.82);
+  color: var(--fg);
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.import-export-error {
+  margin: 0;
+  color: #ff9fb0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.import-export-filename {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.import-export-confirm {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(5, 8, 14, 0.82);
+}
+
+.import-export-confirm-card {
+  width: min(100%, 340px);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: rgba(14, 17, 25, 0.98);
+  box-shadow: var(--shadow-soft);
+  padding: 14px;
+}
+
+.import-export-confirm-card h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.import-export-confirm-card p {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.import-export-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
 }
 
 .nodes-panel-tools {
@@ -1086,6 +1204,62 @@
   display: grid;
   gap: 14px;
   padding: 14px 14px 18px;
+}
+
+.selected-node-properties {
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(8, 11, 17, 0.72);
+  color: var(--fg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.45;
+  padding: 10px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.mapping-editor-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.mapping-editor-rows {
+  display: grid;
+  gap: 10px;
+}
+
+.mapping-editor-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.7fr) minmax(0, 1.6fr) auto;
+  gap: 8px;
+  align-items: start;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(8, 11, 17, 0.58);
+  padding: 8px;
+}
+
+.mapping-editor-cascade {
+  display: grid;
+  gap: 6px;
+}
+
+.mapping-editor-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.mapping-editor-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .section-title-row {

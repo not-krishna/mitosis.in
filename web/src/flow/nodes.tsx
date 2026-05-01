@@ -1,10 +1,12 @@
 // @ts-nocheck
+import { useRef, useState } from "react";
 import { Handle, Position } from "@xyflow/react";
 import { emptyAction, ratioSizes } from "../utils/constants";
 import { variantNameForRow } from "./nodeHelpers";
 
 export function MappingNode({ data }) {
   const mappings = data.mappings || [];
+  const savedMappings = data.savedMappings || [];
   const conflicts = data.conflicts || [];
   const linked = mappings.filter(
     (mapping) => mapping.kind === "SKIP" || mapping.targetIds.length,
@@ -22,23 +24,14 @@ export function MappingNode({ data }) {
             : "disconnected"}
         </span>
       </header>
-      <div className="mapping-list">
-        {mappings.slice(0, 7).map((mapping) => (
-          <div
-            className={
-              mapping.targetIds.length || mapping.kind === "SKIP"
-                ? "mapping-row mapped"
-                : "mapping-row"
-            }
-            key={mapping.header}
-          >
-            <span>{mapping.header}</span>
-            <b>{mapping.kind}</b>
-            <em>
-              {mapping.rule || "manual"} - {mapping.targetIds.length} targets
-            </em>
-          </div>
-        ))}
+      <div className="node-actions">
+        <button
+          type="button"
+          className="primary"
+          onClick={() => data.openMappingEditor?.(data.nodeId)}
+        >
+          {savedMappings.length === 0 ? "Add Mapping" : "Edit Mapping"}
+        </button>
       </div>
       {conflicts.length > 0 && (
         <div className="conflict">{conflicts.length} mappings need review</div>
@@ -140,6 +133,26 @@ export function ScaleNode({ data }) {
 export function NewInputNode({ data }) {
   const columns = data.columns || [];
   const rows = data.rows || [];
+  const [importedFileName, setImportedFileName] = useState("");
+  const fileInputRef = useRef(null);
+
+  const openCsvPicker = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event) => {
+    const file = event.target.files?.[0];
+    console.log("[NewInputNode] CSV picker change fired", file?.name || "none");
+    if (!file) return;
+    const imported = await (data.importCsv || emptyAction)(file);
+    if (imported) setImportedFileName(file.name);
+    event.target.value = "";
+  };
+
+  const clearImportedCsv = async () => {
+    await (data.importCsv || emptyAction)(null, { clear: true });
+    setImportedFileName("");
+  };
 
   return (
     <section className="flow-node new-input-node">
@@ -165,16 +178,59 @@ export function NewInputNode({ data }) {
             .join(" / ") || "No columns"}
         </strong>
       </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".csv"
+        style={{ display: "none" }}
+        onChange={handleFileChange}
+      />
       <div className="node-actions">
-        <button type="button" onClick={data.importCsv || emptyAction}>
-          Import CSV
-        </button>
-        <button type="button" onClick={data.exportCsv || emptyAction}>
-          Export CSV
-        </button>
-        <button type="button" onClick={data.autoMap || emptyAction}>
-          Auto-map
-        </button>
+        {importedFileName ? (
+          <div
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "8px",
+            }}
+          >
+            <span
+              style={{
+                color: "var(--muted)",
+                fontSize: "11px",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+              title={importedFileName}
+            >
+              {importedFileName}
+            </span>
+            <button
+              type="button"
+              onClick={clearImportedCsv}
+              aria-label="Remove imported csv"
+              title="Remove imported csv"
+              style={{
+                minHeight: "24px",
+                minWidth: "24px",
+                padding: "0 8px",
+                border: "1px solid var(--border)",
+                borderRadius: "6px",
+                background: "rgba(13, 16, 24, 0.72)",
+                color: "var(--muted)",
+              }}
+            >
+              ×
+            </button>
+          </div>
+        ) : (
+          <button type="button" onClick={openCsvPicker}>
+            Import CSV
+          </button>
+        )}
       </div>
     </section>
   );
