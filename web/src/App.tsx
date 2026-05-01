@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ReactFlowProvider,
   addEdge,
@@ -76,18 +77,101 @@ function splitLayerPath(layerName) {
 }
 
 function buildLayerTree(layerOptions) {
-  const root = { children: new Map(), layers: [] };
+  const root = { children: new Map(), layers: [], nodeType: null };
   for (const layer of layerOptions || []) {
     const segments = splitLayerPath(layer.name);
     let cursor = root;
     for (const segment of segments) {
       if (!cursor.children.has(segment)) {
-        cursor.children.set(segment, { children: new Map(), layers: [] });
+        cursor.children.set(segment, {
+          children: new Map(),
+          layers: [],
+          nodeType: null,
+        });
       }
       cursor = cursor.children.get(segment);
     }
     cursor.layers.push(layer);
+    cursor.nodeType = layer.nodeType || cursor.nodeType;
   }
+  return root;
+}
+
+function buildLayerHierarchy(layerOptions, rootId = "") {
+  const layers = layerOptions || [];
+  const hasParentIds = layers.some((layer) => layer?.parentId);
+  if (!hasParentIds) {
+    const root = { name: "root", children: [], nodeType: null };
+    layers.forEach((layer) => {
+      const segments = splitLayerPath(layer.name);
+      let cursor = root;
+      segments.forEach((segment, index) => {
+        let next = cursor.children.find((child) => child.name === segment);
+        if (!next) {
+          next = {
+            name: segment,
+            children: [],
+            nodeType: null,
+            layer: null,
+          };
+          cursor.children.push(next);
+        }
+        if (index === segments.length - 1) {
+          next.nodeType = layer.nodeType || next.nodeType;
+          next.layer = layer;
+        }
+        cursor = next;
+      });
+    });
+    const sortNodes = (nodes) => {
+      nodes.sort((a, b) => a.name.localeCompare(b.name));
+      nodes.forEach((node) => sortNodes(node.children || []));
+    };
+    sortNodes(root.children);
+    return root.children;
+  }
+
+  const byId = new Map();
+  layers.forEach((layer) => {
+    byId.set(layer.id, { ...layer, children: [] });
+  });
+  const roots = [];
+  byId.forEach((node) => {
+    if (node.parentId && byId.has(node.parentId)) {
+      byId.get(node.parentId).children.push(node);
+      return;
+    }
+    if (node.parentId && node.parentId !== rootId && byId.has(node.parentId)) {
+      return;
+    }
+    roots.push(node);
+  });
+  const sortNodes = (nodes) => {
+    nodes.sort((a, b) => a.name.localeCompare(b.name));
+    nodes.forEach((node) => sortNodes(node.children || []));
+  };
+  sortNodes(roots);
+  return roots;
+}
+
+function buildLayerTreeFromHierarchy(nodes) {
+  const root = { children: new Map(), layers: [], nodeType: null };
+  const insertNode = (parent, node) => {
+    if (!parent.children.has(node.name)) {
+      parent.children.set(node.name, {
+        children: new Map(),
+        layers: [],
+        nodeType: node.nodeType || null,
+      });
+    }
+    const cursor = parent.children.get(node.name);
+    if (node.layer || node.id) {
+      cursor.layers.push(node.layer || node);
+      cursor.nodeType = node.nodeType || cursor.nodeType;
+    }
+    (node.children || []).forEach((child) => insertNode(cursor, child));
+  };
+  (nodes || []).forEach((node) => insertNode(root, node));
   return root;
 }
 
@@ -109,12 +193,24 @@ function defaultPropertyForKind(kind) {
 function resolveLayerType(layer) {
   if (!layer) return "ANY";
   if (layer.nodeType === "TEXT") return "TEXT";
-  if (layer.targetKinds?.includes("IMAGE") && !layer.targetKinds?.includes("TEXT"))
+  if (
+    layer.targetKinds?.includes("IMAGE") &&
+    !layer.targetKinds?.includes("TEXT")
+  )
     return "IMAGE";
   if (
-    ["FRAME", "COMPONENT", "RECTANGLE", "ELLIPSE", "POLYGON", "STAR", "VECTOR", "LINE", "GROUP", "SECTION"].includes(
-      layer.nodeType,
-    )
+    [
+      "FRAME",
+      "COMPONENT",
+      "RECTANGLE",
+      "ELLIPSE",
+      "POLYGON",
+      "STAR",
+      "VECTOR",
+      "LINE",
+      "GROUP",
+      "SECTION",
+    ].includes(layer.nodeType)
   )
     return "SHAPE";
   return "ANY";
@@ -172,6 +268,9 @@ function App() {
   const [propsPanelView, setPropsPanelView] = useState("node");
   const [mappingEditorFrameId, setMappingEditorFrameId] = useState("");
   const [mappingEditorRows, setMappingEditorRows] = useState([]);
+  const [mappingEditorDropdownRowId, setMappingEditorDropdownRowId] =
+    useState("");
+  const mappingEditorTriggerRefs = useRef(new Map());
   const [isLeftPanelVisible, setIsLeftPanelVisible] = useState(true);
   const [isRightPanelVisible, setIsRightPanelVisible] = useState(false);
   const [isNodesPanelVisible, setIsNodesPanelVisible] = useState(false);
@@ -1072,14 +1171,19 @@ function App() {
       setNodes(importedNodes);
       setEdges(importedEdges);
       setMappings(importedMappings);
-      setConflicts(Array.isArray(workspace?.conflicts) ? workspace.conflicts : []);
+      setConflicts(
+        Array.isArray(workspace?.conflicts) ? workspace.conflicts : [],
+      );
       setVariantSettings(
-        workspace?.variantSettings && typeof workspace.variantSettings === "object"
+        workspace?.variantSettings &&
+          typeof workspace.variantSettings === "object"
           ? workspace.variantSettings
           : {},
       );
       setFrames(Array.isArray(workspace?.frames) ? workspace.frames : []);
-      setTemplateId(typeof workspace?.templateId === "string" ? workspace.templateId : "");
+      setTemplateId(
+        typeof workspace?.templateId === "string" ? workspace.templateId : "",
+      );
       setCampaignName(
         typeof workspace?.campaignName === "string"
           ? workspace.campaignName
@@ -1100,13 +1204,15 @@ function App() {
           ? workspace.selectedDockFrameIds
           : [],
       );
-      setActiveTool(typeof workspace?.activeTool === "string" ? workspace.activeTool : "input");
+      setActiveTool(
+        typeof workspace?.activeTool === "string"
+          ? workspace.activeTool
+          : "input",
+      );
       setColumnQuery(
         typeof workspace?.columnQuery === "string" ? workspace.columnQuery : "",
       );
-      setColumnFilter(
-        workspace?.columnFilter === "mapped" ? "mapped" : "all",
-      );
+      setColumnFilter(workspace?.columnFilter === "mapped" ? "mapped" : "all");
       setRightPanelTab(
         workspace?.rightPanelTab === "frame" ? "frame" : "mapping",
       );
@@ -1225,7 +1331,8 @@ function App() {
   );
 
   const activeMappingEditorFrameId = useMemo(
-    () => mappingEditorFrameId || templateId || mappingEditorTemplates[0]?.id || "",
+    () =>
+      mappingEditorFrameId || templateId || mappingEditorTemplates[0]?.id || "",
     [mappingEditorFrameId, mappingEditorTemplates, templateId],
   );
 
@@ -1242,15 +1349,35 @@ function App() {
     [activeMappingEditorFrame],
   );
 
-  const mappingEditorLayerTree = useMemo(
-    () => buildLayerTree(mappingEditorLayers),
-    [mappingEditorLayers],
+  const mappingEditorHierarchy = useMemo(
+    () =>
+      buildLayerHierarchy(
+        mappingEditorLayers,
+        activeMappingEditorFrameId || "",
+      ),
+    [activeMappingEditorFrameId, mappingEditorLayers],
   );
+
+  const mappingEditorLayerTree = useMemo(
+    () => buildLayerTreeFromHierarchy(mappingEditorHierarchy),
+    [mappingEditorHierarchy],
+  );
+
+  useEffect(() => {
+    setMappingEditorDropdownRowId("");
+  }, [activeMappingEditorFrameId]);
 
   const resolveLayerForRow = useCallback(
     (row) => {
-      const treeNode = getTreeNodeByPath(mappingEditorLayerTree, row.pathSegments);
-      if (!treeNode || treeNode.children.size > 0 || treeNode.layers.length === 0) {
+      const treeNode = getTreeNodeByPath(
+        mappingEditorLayerTree,
+        row.pathSegments,
+      );
+      if (
+        !treeNode ||
+        treeNode.children.size > 0 ||
+        treeNode.layers.length === 0
+      ) {
         return null;
       }
       if (row.layerId) {
@@ -1303,9 +1430,16 @@ function App() {
     setMappingEditorRows((items) => [...items, createMappingEditorRow()]);
   }, []);
 
-  const removeMappingEditorRow = useCallback((rowId) => {
-    setMappingEditorRows((items) => items.filter((row) => row.id !== rowId));
-  }, []);
+  const removeMappingEditorRow = useCallback(
+    (rowId) => {
+      setMappingEditorRows((items) => items.filter((row) => row.id !== rowId));
+      mappingEditorTriggerRefs.current.delete(rowId);
+      if (mappingEditorDropdownRowId === rowId) {
+        setMappingEditorDropdownRowId("");
+      }
+    },
+    [mappingEditorDropdownRowId],
+  );
 
   const updateMappingEditorRowColumn = useCallback((rowId, columnName) => {
     setMappingEditorRows((items) =>
@@ -1320,8 +1454,17 @@ function App() {
           if (row.id !== rowId) return row;
           const nextPath = [...row.pathSegments.slice(0, levelIndex), segment];
           const treeNode = getTreeNodeByPath(mappingEditorLayerTree, nextPath);
-          if (!treeNode || treeNode.children.size > 0 || treeNode.layers.length === 0) {
-            return { ...row, pathSegments: nextPath, layerId: "", property: "" };
+          if (
+            !treeNode ||
+            treeNode.children.size > 0 ||
+            treeNode.layers.length === 0
+          ) {
+            return {
+              ...row,
+              pathSegments: nextPath,
+              layerId: "",
+              property: "",
+            };
           }
           const resolvedLayer = treeNode.layers[0];
           const nextPropertyOptions = propertyOptionsForLayer(resolvedLayer);
@@ -1339,11 +1482,269 @@ function App() {
     [mappingEditorLayerTree],
   );
 
+  const updateMappingEditorRowPathSegments = useCallback(
+    (rowId, pathSegments) => {
+      setMappingEditorRows((items) =>
+        items.map((row) => {
+          if (row.id !== rowId) return row;
+          const treeNode = getTreeNodeByPath(
+            mappingEditorLayerTree,
+            pathSegments,
+          );
+          if (
+            !treeNode ||
+            treeNode.children.size > 0 ||
+            treeNode.layers.length === 0
+          ) {
+            return { ...row, pathSegments, layerId: "", property: "" };
+          }
+          const resolvedLayer = treeNode.layers[0];
+          const nextPropertyOptions = propertyOptionsForLayer(resolvedLayer);
+          return {
+            ...row,
+            pathSegments,
+            layerId: resolvedLayer.id,
+            property: nextPropertyOptions.includes(row.property)
+              ? row.property
+              : nextPropertyOptions[0] || "",
+          };
+        }),
+      );
+    },
+    [mappingEditorLayerTree],
+  );
+
   const updateMappingEditorRowProperty = useCallback((rowId, property) => {
     setMappingEditorRows((items) =>
       items.map((row) => (row.id === rowId ? { ...row, property } : row)),
     );
   }, []);
+
+  useEffect(() => {
+    if (propsPanelView !== "mapping-editor") return;
+    console.log("Mapping editor layer tree:", mappingEditorLayerTree);
+  }, [mappingEditorLayerTree, propsPanelView]);
+
+  const buildCascadeItems = (node) =>
+    (node || [])
+      .map((child) => ({
+        name: child.name,
+        node: child,
+        children: buildCascadeItems(child.children || []),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+  const isForcedLeaf = (node) => {
+    if (!node) return false;
+    if (["TEXT", "RECTANGLE"].includes(node.nodeType)) return true;
+    if (node.targetKinds?.includes("IMAGE")) return true;
+    return false;
+  };
+
+  const cascadeRootItems = useMemo(
+    () => buildCascadeItems(mappingEditorHierarchy),
+    [mappingEditorHierarchy],
+  );
+
+  const CascadeDropdown = ({ anchorRef, items, onSelect, onClose }) => {
+    const [activePath, setActivePath] = useState([]);
+    const levelRefs = useRef([]);
+    const itemRefs = useRef(new Map());
+    const MENU_WIDTH = 220;
+
+    useEffect(() => {
+      const handleOutsideClick = (event) => {
+        const target = event.target;
+        const insideAnchor = anchorRef.current?.contains(target);
+        const insideLevel = levelRefs.current.some((node) =>
+          node?.contains(target),
+        );
+        if (!insideAnchor && !insideLevel) {
+          onClose();
+        }
+      };
+      document.addEventListener("mousedown", handleOutsideClick);
+      return () => {
+        document.removeEventListener("mousedown", handleOutsideClick);
+      };
+    }, [anchorRef, onClose]);
+
+    const getItemByName = (list, name) =>
+      (list || []).find((entry) => entry.name === name);
+
+    const buildLevels = () => {
+      const levels = [];
+      let currentItems = items || [];
+      let depth = 0;
+      while (currentItems.length > 0) {
+        levels.push({ depth, items: currentItems });
+        const activeName = activePath[depth];
+        const activeItem = getItemByName(currentItems, activeName);
+        if (
+          !activeItem ||
+          !activeItem.children?.length ||
+          isForcedLeaf(activeItem.node)
+        ) {
+          break;
+        }
+        currentItems = activeItem.children;
+        depth += 1;
+      }
+      return levels;
+    };
+
+    const levels = buildLevels();
+    const activeDepth = activePath.length - 1;
+    const activeItemList = levels[activeDepth]?.items || items || [];
+    const activeItem = getItemByName(activeItemList, activePath[activeDepth]);
+    const isLeafActive =
+      activeItem &&
+      (!activeItem.children?.length || isForcedLeaf(activeItem.node));
+    const leafLayer = isLeafActive
+      ? activeItem.node?.layer || activeItem.node?.layers?.[0] || null
+      : null;
+    const leafProperties = propertyOptionsForLayer(leafLayer);
+
+    const getAnchorRect = (depth) => {
+      if (depth === 0) return anchorRef.current?.getBoundingClientRect();
+      const key = `${depth - 1}|${activePath[depth - 1]}`;
+      return itemRefs.current.get(key)?.getBoundingClientRect();
+    };
+
+    const getPanelStyle = (rect, depth) => {
+      if (!rect) return { display: "none" };
+      if (depth === 0) {
+        return {
+          position: "fixed",
+          top: rect.bottom + 4,
+          left: rect.left,
+          width: MENU_WIDTH,
+          zIndex: 99999,
+        };
+      }
+      const left = rect.right + 4;
+      return {
+        position: "fixed",
+        top: rect.top,
+        left,
+        width: MENU_WIDTH,
+        zIndex: 99999 + depth,
+      };
+    };
+
+    if (!items || items.length === 0) {
+      const rect = getAnchorRect(0);
+      const style = getPanelStyle(rect, 0);
+      return createPortal(
+        <div
+          className="mapping-editor-cascade-portal"
+          style={style}
+          ref={(node) => {
+            levelRefs.current[0] = node;
+          }}
+        >
+          <div className="mapping-editor-cascade-level">
+            <div className="mapping-editor-menu-empty">No layers available</div>
+          </div>
+        </div>,
+        document.body,
+      );
+    }
+
+    const renderLevel = (level) => {
+      const rect = getAnchorRect(level.depth);
+      const style = getPanelStyle(rect, level.depth);
+      return createPortal(
+        <div
+          className="mapping-editor-cascade-portal"
+          style={style}
+          ref={(node) => {
+            levelRefs.current[level.depth] = node;
+          }}
+        >
+          <div className="mapping-editor-cascade-level">
+            {level.items.map((item) => {
+              const isActive = activePath[level.depth] === item.name;
+              const hasChildren =
+                item.children?.length > 0 && !isForcedLeaf(item.node);
+              const key = `${level.depth}|${item.name}`;
+              return (
+                <button
+                  type="button"
+                  key={key}
+                  ref={(node) => {
+                    if (node) {
+                      itemRefs.current.set(key, node);
+                    }
+                  }}
+                  className={
+                    isActive
+                      ? "mapping-editor-cascade-item active"
+                      : "mapping-editor-cascade-item"
+                  }
+                  onMouseEnter={() =>
+                    setActivePath((current) => [
+                      ...current.slice(0, level.depth),
+                      item.name,
+                    ])
+                  }
+                  onClick={() =>
+                    setActivePath((current) => [
+                      ...current.slice(0, level.depth),
+                      item.name,
+                    ])
+                  }
+                >
+                  <span>{item.name}</span>
+                  {hasChildren && (
+                    <span className="mapping-editor-cascade-chevron">›</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>,
+        document.body,
+      );
+    };
+
+    const renderPropertyLevel = () => {
+      if (!isLeafActive) return null;
+      const depth = activeDepth + 1;
+      const rect = getAnchorRect(depth);
+      const style = getPanelStyle(rect, depth);
+      return createPortal(
+        <div
+          className="mapping-editor-cascade-portal"
+          style={style}
+          ref={(node) => {
+            levelRefs.current[depth] = node;
+          }}
+        >
+          <div className="mapping-editor-cascade-level">
+            {leafProperties.map((property) => (
+              <button
+                type="button"
+                key={`${activeItem?.name || "leaf"}-${property}`}
+                className="mapping-editor-cascade-property"
+                onClick={() => onSelect([...activePath, property])}
+              >
+                {property}
+              </button>
+            ))}
+          </div>
+        </div>,
+        document.body,
+      );
+    };
+
+    return (
+      <>
+        {levels.map((level) => renderLevel(level))}
+        {renderPropertyLevel()}
+      </>
+    );
+  };
 
   const saveMappingsFromEditor = useCallback(() => {
     const nextMappings = mappingEditorRows
@@ -1400,7 +1801,8 @@ function App() {
                   ? mapping.pathSegments
                   : splitLayerPath(targetLayer?.name || ""),
               layerId: mapping.targetIds?.[0] || "",
-              property: mapping.property || defaultPropertyForKind(mapping.kind),
+              property:
+                mapping.property || defaultPropertyForKind(mapping.kind),
             });
           })
         : [createMappingEditorRow()];
@@ -1860,42 +2262,19 @@ function App() {
 
                   <div className="mapping-editor-rows">
                     {mappingEditorRows.map((row) => {
-                      const treeNode = getTreeNodeByPath(
-                        mappingEditorLayerTree,
-                        row.pathSegments,
-                      );
-                      const resolvedLayer = resolveLayerForRow(row);
-                      const propertyOptions = propertyOptionsForLayer(
-                        resolvedLayer,
-                      );
-                      const kind = kindForMappingProperty(
-                        row.property || defaultPropertyForKind("TEXT"),
-                        resolvedLayer,
-                      );
-                      const tag = row.columnName ? tagForKind(row.columnName, kind) : "";
-                      const targets = resolvedLayer?.id
-                        ? [resolvedLayer.id]
-                        : row.layerId
-                          ? [row.layerId]
-                          : [];
-
-                      const levelOptions = [];
-                      let cursor = mappingEditorLayerTree;
-                      let levelIndex = 0;
-                      while (cursor) {
-                        const entries = [...cursor.children.keys()].sort();
-                        if (entries.length === 0) break;
-                        levelOptions.push(entries);
-                        const selectedSegment = row.pathSegments[levelIndex];
-                        if (
-                          !selectedSegment ||
-                          !cursor.children.has(selectedSegment)
-                        ) {
-                          break;
-                        }
-                        cursor = cursor.children.get(selectedSegment);
-                        levelIndex += 1;
+                      const isDropdownOpen =
+                        mappingEditorDropdownRowId === row.id;
+                      if (!mappingEditorTriggerRefs.current.has(row.id)) {
+                        mappingEditorTriggerRefs.current.set(row.id, {
+                          current: null,
+                        });
                       }
+                      const triggerRef = mappingEditorTriggerRefs.current.get(
+                        row.id,
+                      );
+                      const selectedPathLabel = row.property
+                        ? [...row.pathSegments, row.property].join(" > ")
+                        : "Select target →";
 
                       return (
                         <div className="mapping-editor-row" key={row.id}>
@@ -1916,58 +2295,65 @@ function App() {
                             ))}
                           </select>
 
-                          <div className="mapping-editor-cascade">
-                            {levelOptions.map((options, index) => (
-                              <select
-                                value={row.pathSegments[index] || ""}
-                                onChange={(event) =>
-                                  updateMappingEditorRowPath(
-                                    row.id,
-                                    index,
-                                    event.target.value,
-                                  )
+                          <div className="mapping-editor-target">
+                            <button
+                              type="button"
+                              ref={triggerRef}
+                              className={
+                                row.property
+                                  ? "mapping-editor-trigger"
+                                  : "mapping-editor-trigger placeholder"
+                              }
+                              onClick={() => {
+                                if (isDropdownOpen) {
+                                  setMappingEditorDropdownRowId("");
+                                  return;
                                 }
-                                key={`${row.id}-level-${index}`}
+                                setMappingEditorDropdownRowId(row.id);
+                              }}
+                            >
+                              <span
+                                className={
+                                  row.property
+                                    ? "mapping-editor-trigger-text"
+                                    : "mapping-editor-trigger-placeholder"
+                                }
                               >
-                                <option value="">Level {index + 1}</option>
-                                {options.map((option) => (
-                                  <option value={option} key={option}>
-                                    {option}
-                                  </option>
-                                ))}
-                              </select>
-                            ))}
-                            {treeNode &&
-                              treeNode.children.size === 0 &&
-                              treeNode.layers.length > 0 && (
-                                <select
-                                  value={row.property}
-                                  onChange={(event) =>
+                                {selectedPathLabel}
+                              </span>
+                              <span
+                                className="mapping-editor-trigger-chevron"
+                                aria-hidden="true"
+                              >
+                                ▾
+                              </span>
+                            </button>
+
+                            {isDropdownOpen && (
+                              <>
+                                <CascadeDropdown
+                                  anchorRef={triggerRef}
+                                  items={cascadeRootItems}
+                                  onSelect={(selection) => {
+                                    const nextPath = selection.slice(0, -1);
+                                    const property =
+                                      selection[selection.length - 1] || "";
+                                    updateMappingEditorRowPathSegments(
+                                      row.id,
+                                      nextPath,
+                                    );
                                     updateMappingEditorRowProperty(
                                       row.id,
-                                      event.target.value,
-                                    )
+                                      property,
+                                    );
+                                    setMappingEditorDropdownRowId("");
+                                  }}
+                                  onClose={() =>
+                                    setMappingEditorDropdownRowId("")
                                   }
-                                >
-                                  <option value="">Property</option>
-                                  {propertyOptions.map((property) => (
-                                    <option value={property} key={property}>
-                                      {property}
-                                    </option>
-                                  ))}
-                                </select>
-                              )}
-                            <div className="mapping-editor-readout">
-                              <span>[CSV Column: "{row.columnName || "-"}"]</span>
-                              <span>{` → [Kind: ${kind}]`}</span>
-                              <span>{` [Tag: ${tag || "-"}]`}</span>
-                              <span>
-                                {` [Targets: ${targets.length ? targets.join(", ") : "-"}]`}
-                              </span>
-                              {kind === "SKIP" && (
-                                <span className="status-chip missing">Skip</span>
-                              )}
-                            </div>
+                                />
+                              </>
+                            )}
                           </div>
 
                           <button
@@ -2028,7 +2414,9 @@ function App() {
                 ) : (
                   <div className="empty-inline">
                     <strong>Select a node to view properties</strong>
-                    <span>Click any node on the canvas to inspect it here.</span>
+                    <span>
+                      Click any node on the canvas to inspect it here.
+                    </span>
                   </div>
                 )}
               </section>
@@ -2183,7 +2571,6 @@ function App() {
           </div>
         </main>
       </div>
-
     </div>
   );
 }

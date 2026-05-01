@@ -1222,44 +1222,183 @@
 }
 
 .mapping-editor-panel {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
+  min-height: 100%;
 }
 
 .mapping-editor-rows {
   display: grid;
-  gap: 10px;
+  gap: 8px;
+  flex: 1;
 }
 
 .mapping-editor-row {
   display: grid;
-  grid-template-columns: minmax(120px, 0.7fr) minmax(0, 1.6fr) auto;
+  grid-template-columns: minmax(140px, 0.75fr) minmax(0, 1.7fr) auto;
   gap: 8px;
-  align-items: start;
+  align-items: center;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: rgba(8, 11, 17, 0.58);
-  padding: 8px;
+  padding: 10px;
+  position: relative;
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.04);
 }
 
-.mapping-editor-cascade {
-  display: grid;
-  gap: 6px;
-}
-
-.mapping-editor-readout {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  color: var(--muted);
+.mapping-editor-row select,
+.mapping-editor-trigger {
+  min-height: 36px;
   font-size: 11px;
-  line-height: 1.4;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.mapping-editor-row select:hover,
+.mapping-editor-trigger:hover {
+  border-color: rgba(124, 92, 255, 0.35);
+  box-shadow: 0 0 0 1px rgba(124, 92, 255, 0.2);
+}
+
+.mapping-editor-target {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.mapping-editor-trigger {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(10, 14, 22, 0.72);
+  color: var(--fg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 10px;
+  text-align: left;
+}
+
+.mapping-editor-trigger.placeholder {
+  color: var(--muted);
+}
+
+.mapping-editor-trigger-text {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mapping-editor-trigger-placeholder {
+  color: var(--muted);
+}
+
+.mapping-editor-trigger-chevron {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.mapping-editor-cascade-portal {
+  background: rgba(8, 11, 17, 0.98);
+  border: 1px solid rgba(124, 92, 255, 0.2);
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 16px 30px rgba(5, 8, 15, 0.6);
+  overflow: visible;
+}
+
+.mapping-editor-cascade-level {
+  position: relative;
+  min-width: 190px;
+  max-height: none;
+  overflow: visible;
+  display: grid;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 10px;
+  background: rgba(12, 16, 25, 0.92);
+}
+
+.mapping-editor-cascade-item {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--fg);
+  font-size: 11px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  text-align: left;
+  display: inline-flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  transition:
+    background 140ms ease,
+    color 140ms ease,
+    border-color 140ms ease;
+}
+
+.mapping-editor-cascade-item:hover,
+.mapping-editor-cascade-item.active {
+  background: rgba(124, 92, 255, 0.16);
+  border-color: rgba(124, 92, 255, 0.32);
+  color: #f1edff;
+}
+
+.mapping-editor-cascade-chevron {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.mapping-editor-cascade-properties {
+  z-index: 3;
+}
+
+.mapping-editor-cascade-property {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--fg);
+  font-size: 11px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  text-align: left;
+  transition:
+    background 140ms ease,
+    color 140ms ease,
+    border-color 140ms ease;
+}
+
+.mapping-editor-cascade-property:hover {
+  background: rgba(124, 92, 255, 0.2);
+  border-color: rgba(124, 92, 255, 0.42);
+  color: #ffffff;
+}
+
+.mapping-editor-menu-empty {
+  padding: 10px;
+  font-size: 11px;
+  color: var(--muted);
 }
 
 .mapping-editor-actions {
   display: flex;
   justify-content: space-between;
   gap: 8px;
+  position: sticky;
+  bottom: 0;
+  padding: 10px 0 6px;
+  background: linear-gradient(
+    180deg,
+    rgba(16, 20, 30, 0),
+    rgba(16, 20, 30, 0.94) 40%
+  );
 }
 
 .section-title-row {
